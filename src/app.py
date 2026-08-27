@@ -223,9 +223,9 @@ class CreditAnalysisApp:
             side="left", fill="x", expand=True, padx=(0, 8)
         )
         ttk.Button(row, text="Procurar...", command=self._browse_pdf).pack(side="left")
-        ttk.Button(row, text="Extrair", command=self._extract).pack(side="left", padx=(8, 0))
 
-        self.pdf_status = ttk.Label(frame, text="Selecione o PDF do Serasa e clique em 'Extrair'.",
+        self.pdf_status = ttk.Label(frame, text="Selecione o PDF do Serasa. Os dados são extraídos "
+                                                "automaticamente.",
                                     foreground="gray")
         self.pdf_status.pack(anchor="w", pady=(8, 0))
 
@@ -288,6 +288,11 @@ class CreditAnalysisApp:
         self.notes_text = tk.Text(grid, width=50, height=2)
         self.notes_text.grid(row=7, column=1, sticky="w", pady=3)
 
+        analyze_btn = ttk.Button(frame, text="Executar análise",
+                                 command=self._analyze,
+                                 width=40)
+        analyze_btn.pack(anchor="w", pady=(12, 0))
+
     def _build_result_section(self, parent):
         frame = ttk.LabelFrame(parent, text="Resultado", padding=12)
         frame.pack(fill="both", expand=True, padx=16, pady=8)
@@ -324,8 +329,7 @@ class CreditAnalysisApp:
             self.pdf_path = path
             self.pdf_var.set(path)
             save_config(last_pdf_path=path, last_analyst=self.analyst_var.get())
-            self.pdf_status.config(text="PDF selecionado. Clique em 'Extrair' para ler os dados.",
-                                   foreground="gray")
+            self._extract()
 
     def _extract(self):
         if not self.pdf_path:
