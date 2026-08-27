@@ -14,9 +14,9 @@ from pdf_extractor import extract_pdf_data
 from calculations import calculate
 from pdf_report import generate_report
 from history import add_to_history
-from paths import outputs_dir
+from paths import reports_dir
 
-OUTPUT_DIR = outputs_dir()
+OUTPUT_DIR = reports_dir()
 
 
 def process_analysis(pdf_path, inputs, report_path=None):
