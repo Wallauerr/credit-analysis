@@ -32,9 +32,9 @@ try:
 except Exception:
     PARAMS = dict(DEFAULT_PARAMS)
 
-LOW_RISK = 'Low risk'
-MODERATE_RISK = 'Moderate risk'
-HIGH_RISK = 'High risk'
+LOW_RISK = 'Baixo risco'
+MODERATE_RISK = 'Risco moderado'
+HIGH_RISK = 'Alto risco'
 
 
 def internal_score(scores, params=None):
@@ -130,7 +130,7 @@ def calculate(pdf_data, scores, requested_limit, params=None):
 
     # coverage
     if requested_limit and suggested_limit:
-        result['coverage'] = 'Within limit' if requested_limit <= suggested_limit else 'Above suggested limit'
+        result['coverage'] = 'Dentro do limite' if requested_limit <= suggested_limit else 'Acima do limite sugerido'
     else:
         result['coverage'] = ''
 
@@ -147,21 +147,21 @@ def calculate(pdf_data, scores, requested_limit, params=None):
     else:
         p = params if params else PARAMS
         if ei > p['exposure_critical']:
-            result['capital_alert'] = 'Exposure too high'
+            result['capital_alert'] = 'Exposição muito alta'
         elif ei > p['exposure_alert']:
-            result['capital_alert'] = 'Above share capital'
+            result['capital_alert'] = 'Acima do capital social'
         else:
-            result['capital_alert'] = 'Within share capital'
+            result['capital_alert'] = 'Dentro do capital social'
 
     # recommendation
     ca = result['capital_alert']
-    if final_cls == HIGH_RISK or ca == 'Exposure too high':
-        result['recommendation'] = 'Deny or require collateral'
+    if final_cls == HIGH_RISK or ca == 'Exposição muito alta':
+        result['recommendation'] = 'Negar ou exigir garantia'
     elif (final_cls == MODERATE_RISK
-          or result['coverage'] == 'Above suggested limit'
-          or ca == 'Above share capital'):
-        result['recommendation'] = 'Approve with limit/down payment'
+          or result['coverage'] == 'Acima do limite sugerido'
+          or ca == 'Acima do capital social'):
+        result['recommendation'] = 'Aprovar com limite/entrada'
     else:
-        result['recommendation'] = 'Approve'
+        result['recommendation'] = 'Aprovar'
 
     return result
