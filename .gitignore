@@ -1,15 +1,20 @@
+# PyInstaller
+build/
+dist/
+*.spec.bak
+
 # Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 
 # Generated data / local history
-analysis_history.csv
+# (Note: user data now lives in Documentos/Análises de Crédito, outside the repo)
+analysis_history.json
 outputs/
-
-# Excel model (contains client data - keep out of the repository)
-pICOLI E DENEGA.xlsx
-*.xlsx
+params_config.json
+credit-analysis.log
+credit_analysis_config.json
 
 # Virtual environment
 .venv/

@@ -1,0 +1,16 @@
+[project]
+name = "credit-analysis"
+version = "0.1.0"
+description = "Automated credit analysis tool: reads the Serasa PDF and generates a formatted PDF report with recommendation and history."
+authors = [{ name = "Vinícius Wallauer", email = "wallauer@protonmail.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "pdfplumber>=0.11.0",
+    "reportlab>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pyinstaller>=6.0.0"]
+
+[project.scripts]
+credit-analysis = "app:main"
