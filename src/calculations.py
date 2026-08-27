@@ -6,7 +6,7 @@ Faithful replication of the 'Análise' and 'Parâmetros' sheets.
 """
 
 # Parameters (defaults aligned to the Parâmetros sheet of the Excel)
-PARAMS = {
+DEFAULT_PARAMS = {
     'weight_financial': 0.4,
     'weight_payment_history': 0.3,
     'weight_operational': 0.2,
@@ -22,6 +22,15 @@ PARAMS = {
     'serasa_moderate_min': 400,
     'serasa_high_min': 0,
 }
+
+try:
+    from config_handler import load_params
+
+    _user_params = load_params()
+    PARAMS = dict(DEFAULT_PARAMS)
+    PARAMS.update({k: v for k, v in _user_params.items() if k in DEFAULT_PARAMS})
+except Exception:
+    PARAMS = dict(DEFAULT_PARAMS)
 
 LOW_RISK = 'Low risk'
 MODERATE_RISK = 'Moderate risk'
