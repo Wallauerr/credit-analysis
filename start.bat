@@ -1,7 +1,7 @@
 @echo off
 REM ============================================
-REM  Start the Automated Credit Analysis
+REM  Start the Automated Credit Analysis (GUI)
 REM ============================================
 chcp 65001 >nul
-title Credit Analysis - Serasa
-python main.py
+title Análise de Crédito - Serasa
+python src\app.py

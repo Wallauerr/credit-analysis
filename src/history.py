@@ -23,11 +23,10 @@ def _flatten(d):
 
 
 def add_to_history(pdf_data, inputs, calcs, excel_path, history_path=None):
-    """Add a record to the CSV history."""
+    """Add a record to the CSV history in the project root."""
     if history_path is None:
-        history_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), HISTORY_FILENAME
-        )
+        project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        history_path = os.path.join(project_dir, HISTORY_FILENAME)
 
     fields = {
         'analysis_date': datetime.now().strftime('%d/%m/%Y %H:%M'),

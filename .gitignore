@@ -1,3 +1,8 @@
+# PyInstaller
+build/
+dist/
+*.spec.bak
+
 # Python
 __pycache__/
 *.py[cod]
@@ -6,6 +11,8 @@ __pycache__/
 # Generated data / local history
 analysis_history.csv
 outputs/
+credit-analysis.log
+credit_analysis_config.json
 
 # Excel model (contains client data - keep out of the repository)
 pICOLI E DENEGA.xlsx
