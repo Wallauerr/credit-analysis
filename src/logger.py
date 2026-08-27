@@ -2,12 +2,12 @@ import logging
 import os
 import sys
 
-PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from paths import project_file
 
 
 def setup_logger(log_file=None, log_level=logging.INFO, log_to_console=False):
     if log_file is None:
-        log_file = os.path.join(PROJECT_DIR, "credit-analysis.log")
+        log_file = project_file("credit-analysis.log")
     logger = logging.getLogger("credit_analysis_logger")
     logger.setLevel(log_level)
 
