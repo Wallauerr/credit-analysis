@@ -5,10 +5,10 @@ Configuration handler: JSON persistence of both the UI settings
 import json
 import os
 
-from paths import project_file
+from paths import config_file
 
-UI_CONFIG_FILE = project_file("credit_analysis_config.json")
-PARAMS_CONFIG_FILE = project_file("params_config.json")
+UI_CONFIG_FILE = config_file("credit_analysis_config.json")
+PARAMS_CONFIG_FILE = config_file("params_config.json")
 
 
 def _read_json(path, default):
