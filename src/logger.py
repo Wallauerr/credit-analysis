@@ -2,12 +2,12 @@ import logging
 import os
 import sys
 
-from paths import project_file
+from paths import config_file
 
 
 def setup_logger(log_file=None, log_level=logging.INFO, log_to_console=False):
     if log_file is None:
-        log_file = project_file("credit-analysis.log")
+        log_file = config_file("credit-analysis.log")
     logger = logging.getLogger("credit_analysis_logger")
     logger.setLevel(log_level)
 
