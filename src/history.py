@@ -1,34 +1,25 @@
 """
-History module: records each analysis in a CSV file (append-only),
-ensuring access to past analyses is never lost.
+History module: records each analysis as a JSON record (with the generated
+PDF path) so past analyses can be browsed and reopened inside the app.
 """
-import csv
+import json
 import os
 from datetime import datetime
 
+from paths import project_file
 
-HISTORY_FILENAME = 'analysis_history.csv'
-
-
-def _flatten(d):
-    """Convert a nested dict (e.g.: scores) into flat key-value pairs."""
-    flat = {}
-    for k, v in d.items():
-        if isinstance(v, dict):
-            for subk, subv in v.items():
-                flat[f'{k}_{subk}'] = subv
-        else:
-            flat[k] = v
-    return flat
+HISTORY_FILENAME = 'analysis_history.json'
 
 
-def add_to_history(pdf_data, inputs, calcs, excel_path, history_path=None):
-    """Add a record to the CSV history in the project root."""
-    if history_path is None:
-        project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        history_path = os.path.join(project_dir, HISTORY_FILENAME)
+def _history_path():
+    return project_file(HISTORY_FILENAME)
 
-    fields = {
+
+def add_to_history(pdf_data, inputs, calcs, report_path):
+    """Append a record to the JSON history and return the history path."""
+    history_path = _history_path()
+
+    record = {
         'analysis_date': datetime.now().strftime('%d/%m/%Y %H:%M'),
         'cnpj': pdf_data.get('cnpj', ''),
         'legal_name': pdf_data.get('legal_name', ''),
@@ -36,22 +27,33 @@ def add_to_history(pdf_data, inputs, calcs, excel_path, history_path=None):
         'share_capital': pdf_data.get('share_capital'),
         'monthly_revenue': pdf_data.get('monthly_revenue'),
         'requested_limit': inputs.get('requested_limit'),
+        'scores': list(inputs.get('scores', ())),
         'final_class': calcs.get('final_class'),
         'internal_score': calcs.get('internal_score'),
         'suggested_limit': calcs.get('suggested_limit'),
         'exposure_index': calcs.get('exposure_index'),
         'recommendation': calcs.get('recommendation'),
         'analyst': inputs.get('analyst', ''),
-        'excel_file': excel_path,
+        'notes': inputs.get('notes', ''),
+        'report_path': report_path,
     }
 
-    flat_fields = _flatten(fields)
-
-    is_new = not os.path.exists(history_path)
-    with open(history_path, 'a', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=list(flat_fields.keys()))
-        if is_new:
-            writer.writeheader()
-        writer.writerow(flat_fields)
+    records = load_history()
+    records.append(record)
+    with open(history_path, 'w', encoding='utf-8') as f:
+        json.dump(records, f, ensure_ascii=False, indent=2)
 
     return history_path
+
+
+def load_history():
+    """Load all history records (oldest first). Returns a list of dicts."""
+    history_path = _history_path()
+    if not os.path.exists(history_path):
+        return []
+    try:
+        with open(history_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, OSError):
+        return []
