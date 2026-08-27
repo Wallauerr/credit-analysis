@@ -11,7 +11,7 @@ from processor import process_analysis
 from pdf_extractor import extract_pdf_data
 from history import load_history
 from calculations import DEFAULT_PARAMS
-from paths import outputs_dir, assets_dir
+from paths import reports_dir, assets_dir
 
 SCORE_LABELS = {
     1: "Muito ruim",
@@ -525,7 +525,7 @@ class CreditAnalysisApp:
 
     # ================= UTILITÁRIOS =================
     def _open_output(self):
-        self._open_file(outputs_dir())
+        self._open_file(reports_dir())
 
     def _open_file(self, path):
         if sys.platform.startswith("win"):
