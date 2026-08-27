@@ -9,6 +9,7 @@ __pycache__/
 *.egg-info/
 
 # Generated data / local history
+# (Note: user data now lives in Documentos/Análises de Crédito, outside the repo)
 analysis_history.json
 outputs/
 params_config.json
