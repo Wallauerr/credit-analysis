@@ -1,12 +1,14 @@
-# Análise de Crédito Automatizada (Serasa → Excel)
+# Análise de Crédito Automatizada (Serasa → PDF)
 
 Ferramenta que automatiza o processo de avaliação de crédito B2B:
 
 1. Lê o **PDF do Serasa** automaticamente (CNPJ, score, capital social, faturamento, restrições, etc.)
 2. Você informa apenas os dados manuais: **limite solicitado**, **4 notas (1-5)** e **responsável**
-3. Calcula score interno, classificação final e recomendação (mesmas regras da planilha)
-4. **Preenche o Excel modelo** e salva como novo arquivo (histórico)
-5. Registra tudo em um **CSV de histórico** (nunca mais perde uma análise)
+3. Calcula score interno, classificação final e recomendação (regras configuráveis)
+4. **Gera um relatório PDF formatado** (com logo, pronto para enviar) e registra no **histórico**
+5. Permite **consultar o histórico** das análises direto no app e **abrir o PDF** de cada uma
+
+> Não depende mais de Excel: toda a lógica de cálculo vive no app e o resultado sai em PDF.
 
 ---
 
@@ -15,17 +17,18 @@ Ferramenta que automatiza o processo de avaliação de crédito B2B:
 - **Windows** com Python 3 instalado
   - Baixe em: https://www.python.org/downloads/
   - Na instalação, marque a opção **"Add Python to PATH"**
-- **Microsoft Excel** (para abrir os arquivos gerados)
+- **Microsoft Edge/Chrome ou leitor de PDF** para abrir os relatórios gerados
 
 ## Instalação (primeira vez)
 
-1. Coloque o arquivo **`pICOLI E DENEGA.xlsx`** (seu modelo) na pasta raiz do programa.
-2. Dê dois cliques em **`install.bat`** e aguarde concluir. (só precisa fazer uma vez)
+Dê dois cliques em **`install.bat`** e aguarde concluir. (só precisa fazer uma vez)
 
 ## Como usar (interface gráfica)
 
 1. Gere o **PDF do Serasa** do CNPJ desejado (como já faz hoje).
 2. Dê dois cliques em **`start.bat`** — abre a janela da aplicação.
+
+### Aba "Nova Análise"
 3. Clique em **"Procurar..."** para selecionar o PDF do Serasa.
 4. Clique em **"Extrair"** para ler os dados do PDF (aparecem na tela para conferência).
 5. Preencha os dados manuais:
@@ -35,9 +38,21 @@ Ferramenta que automatiza o processo de avaliação de crédito B2B:
    - **Responsável** e **observações**
 6. Clique em **"Analisar"**.
 7. O resultado (score, classificação e recomendação) aparece na tela, e o programa salva:
-   - O **Excel** preenchido na pasta `outputs/`
-   - O **histórico** em `analysis_history.csv`
-8. Use **"Abrir pasta de saída"** para abrir a pasta dos arquivos gerados.
+   - O **relatório PDF** formatado em `outputs/`
+   - O **histórico** em `analysis_history.json`
+
+### Aba "Histórico"
+- Lista **todas as análises salvas** (data, razão social, CNPJ, score, classe, recomendação, analista).
+- Selecione uma e clique em **"Abrir PDF selecionado"** para reabrir o relatório gerado.
+
+### Aba "Configuração"
+- Permite **editar a lógica de cálculo** sem mexer no código:
+  - Pesos das notas
+  - Limites de classificação interna e Serasa
+  - Percentuais do faturamento para o limite sugerido
+  - Índices de exposição
+- As alterações são salvas em `params_config.json` e valem para as próximas análises.
+- O botão **"Restaurar padrões"** volta aos valores iniciais.
 
 > **Alternativa por linha de comando:** execute `python main.py` e siga as instruções no terminal.
 
@@ -45,49 +60,97 @@ Ferramenta que automatiza o processo de avaliação de crédito B2B:
 
 ```
 outputs/
-  Credit_Analysis_<RAZAO>_<CNPJ>_<DATA>.xlsx   ← arquivo preenchido (histórico)
-analysis_history.csv                           ← registro cumulativo de todas as análises
-credit-analysis.log                            ← log de erros (para diagnóstico)
+  Relatorio_<RAZAO>_<DATA>.pdf        ← relatório formatado (histórico)
+analysis_history.json                ← registro cumulativo das análises
+params_config.json                   ← parâmetros de cálculo editáveis
+credit-analysis.log                  ← log de erros (para diagnóstico)
 ```
 
 ## Estrutura do projeto
 
 ```
 credit-analysis/
-├── src/                # código-fonte
-│   ├── app.py          # interface gráfica (tkinter)
-│   ├── processor.py    # orquestra o fluxo completo da análise
-│   ├── pdf_extractor.py# extração dos dados do PDF
-│   ├── calculations.py # regras/fórmulas de cálculo
-│   ├── excel_writer.py # preenche e salva o Excel
-│   ├── history.py      # registro no CSV de histórico
-│   ├── config_handler.py # lembra o último PDF/responsável
-│   └── logger.py       # logging centralizado (credit-analysis.log)
-├── assets/             # recursos (ícones)
-├── docs/               # documentação
-├── main.py             # interface por linha de comando (CLI)
-├── app.spec            # configuração do PyInstaller (.exe)
-├── pyproject.toml      # metadados e dependências do projeto
-├── install.bat         # instala dependências (1x)
-└── start.bat           # inicia a interface gráfica
+├── src/
+│   ├── app.py            # interface gráfica (abas: Nova Análise/Histórico/Configuração)
+│   ├── processor.py      # orquestra o fluxo completo da análise
+│   ├── pdf_extractor.py  # extração dos dados do PDF
+│   ├── calculations.py   # regras/fórmulas de cálculo (parâmetros editáveis)
+│   ├── pdf_report.py     # geração do relatório PDF formatado
+│   ├── history.py        # histórico em JSON para consulta no app
+│   ├── config_handler.py # persistência de config e parâmetros
+│   ├── paths.py          # resolução de caminhos (fonte e EXE/PyInstaller)
+│   └── logger.py         # logging centralizado (credit-analysis.log)
+├── assets/               # logo e ícone (Sulmag)
+├── docs/                 # documentação
+├── main.py               # interface por linha de comando (CLI)
+├── app.spec              # configuração do PyInstaller (.exe)
+├── pyproject.toml        # metadados e dependências
+├── install.bat           # instala dependências (1x)
+├── start.bat             # inicia a interface gráfica
+└── build_exe.bat         # gera o executável .exe (Windows)
 ```
 
-## Geração de executável (.exe) com PyInstaller
+## Como gerar o executável (.exe)
 
-Com as dependências instaladas (incluindo o grupo dev com PyInstaller):
+O projeto é empacotado em **um único `.exe` standalone** com PyInstaller. O executável
+**já inclui o Python e todas as bibliotecas**, então quem receber o arquivo **não precisa
+instalar nada** — basta dar dois cliques para rodar.
 
-```bash
-pip install -e ".[dev]"
-pyinstaller app.spec
+> A geração precisa ser feita **no Windows** (o PyInstaller gera o `.exe` da plataforma onde roda).
+
+### Passo a passo (no Windows)
+
+1. Instale as dependências (incluindo o PyInstaller), rodando uma vez:
+   ```bat
+   install.bat
+   ```
+   ou, manualmente:
+   ```bat
+   pip install -r requirements.txt
+   pip install pyinstaller
+   ```
+2. Crie o executável:
+   ```bat
+   build_exe.bat
+   ```
+   ou, manualmente:
+   ```bat
+   pyinstaller --clean --noconfirm app.spec
+   ```
+3. O executável será gerado em:
+   ```
+   dist\Analise de Credito.exe
+   ```
+4. Para distribuir, basta enviar esse arquivo único a quem precisar usar a ferramenta.
+
+### Observações sobre o `.exe`
+- O arquivo **`app.spec`** já está configurado para gerar um **`.exe` sem console** (só a janela
+  gráfica) e **embutir o logo** (usado no relatório PDF) e o ícone do app.
+- Como o `.exe` é "portátil", os arquivos gerados (`outputs/`, `analysis_history.json`,
+  `params_config.json`, `credit-analysis.log`) são criados na mesma pasta onde o `.exe` está.
+
+## Ajustar a lógica de cálculo
+
+Pelo **app**: abra a aba **"Configuração"**, edite os valores e clique em **"Salvar"**.
+
+Pelo **arquivo**: edite o `params_config.json` (gerado na primeira execução) ou os padrões
+em `DEFAULT_PARAMS` em `src/calculations.py`.
+
+Exemplo de `params_config.json`:
+```json
+{
+  "weight_financial": 0.4,
+  "weight_payment_history": 0.3,
+  "weight_operational": 0.2,
+  "weight_legal": 0.1,
+  "low_risk_min_internal": 80,
+  "moderate_min_internal": 60,
+  "limit_pct_low": 0.2,
+  "limit_pct_moderate": 0.1,
+  "limit_pct_high": 0.0,
+  "exposure_alert": 1.0,
+  "exposure_critical": 2.0,
+  "serasa_low_min": 700,
+  "serasa_moderate_min": 400
+}
 ```
-
-O executável será gerado em `dist/`. O arquivo `app.spec` já está configurado para:
-- Gerar um **.exe sem console** (janela gráfica apenas)
-- Compactar e incluir via `--onefile`/dependências automaticamente
-
-## Ajustar parâmetros
-
-As faixas, pesos e percentuais são lidos da aba **Parâmetros** do Excel. Para mudar regras
-de crédito, edite a aba Parâmetros do modelo — as fórmulas do Excel recalculam sozinhas.
-Se você quiser que o programa também mude as regras internas, ajuste o dicionário `PARAMS`
-em `src/calculations.py`.
