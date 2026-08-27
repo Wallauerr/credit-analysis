@@ -6,13 +6,11 @@ import json
 import os
 from datetime import datetime
 
-from paths import project_file
-
-HISTORY_FILENAME = 'analysis_history.json'
+from paths import history_path as history_file
 
 
 def _history_path():
-    return project_file(HISTORY_FILENAME)
+    return history_file()
 
 
 def add_to_history(pdf_data, inputs, calcs, report_path):
