@@ -38,8 +38,9 @@ Dê dois cliques em **`install.bat`** e aguarde concluir. (só precisa fazer uma
    - **Responsável** e **observações**
 6. Clique em **"Analisar"**.
 7. O resultado (score, classificação e recomendação) aparece na tela, e o programa salva:
-   - O **relatório PDF** formatado em `outputs/`
-   - O **histórico** em `analysis_history.json`
+   - O **relatório PDF** formatado na pasta `Análises de Crédito/relatorios/`
+   - O **histórico** em `Análises de Crédito/analysis_history.json`
+   - (tudo dentro da pasta `Documentos`)
 
 ### Aba "Histórico"
 - Lista **todas as análises salvas** (data, razão social, CNPJ, score, classe, recomendação, analista).
@@ -58,12 +59,17 @@ Dê dois cliques em **`install.bat`** e aguarde concluir. (só precisa fazer uma
 
 ## O que é gerado
 
+Todas as informações são organizadas numa pasta **dentro de Documentos**, com nomes em pt-BR:
+
 ```
-outputs/
-  Relatorio_<RAZAO>_<DATA>.pdf        ← relatório formatado (histórico)
-analysis_history.json                ← registro cumulativo das análises
-params_config.json                   ← parâmetros de cálculo editáveis
-credit-analysis.log                  ← log de erros (para diagnóstico)
+Documentos/Análises de Crédito/
+├── configs/                    ← configurações e log
+│   ├── credit_analysis_config.json  (último PDF/analista)
+│   ├── params_config.json           (parâmetros de cálculo editáveis)
+│   └── credit-analysis.log          (log de erros para diagnóstico)
+├── relatorios/                 ← relatórios PDF gerados
+│   └── Relatorio_<RAZAO>_<DATA>.pdf  (relatório formatado)
+└── analysis_history.json       ← registro cumulativo das análises (na raiz)
 ```
 
 ## Estrutura do projeto
@@ -126,15 +132,16 @@ instalar nada** — basta dar dois cliques para rodar.
 ### Observações sobre o `.exe`
 - O arquivo **`app.spec`** já está configurado para gerar um **`.exe` sem console** (só a janela
   gráfica) e **embutir o logo** (usado no relatório PDF) e o ícone do app.
-- Como o `.exe` é "portátil", os arquivos gerados (`outputs/`, `analysis_history.json`,
-  `params_config.json`, `credit-analysis.log`) são criados na mesma pasta onde o `.exe` está.
+- Como o `.exe` é "portátil", os dados gerados (`relatorios/`, `configs/`, `analysis_history.json`)
+  ficam **centralizados na pasta `Documentos/Análises de Crédito/`** — não ao lado do `.exe`.
+  Assim, é fácil achar e fazer backup, e não depende da pasta onde o executável está.
 
 ## Ajustar a lógica de cálculo
 
 Pelo **app**: abra a aba **"Configuração"**, edite os valores e clique em **"Salvar"**.
 
-Pelo **arquivo**: edite o `params_config.json` (gerado na primeira execução) ou os padrões
-em `DEFAULT_PARAMS` em `src/calculations.py`.
+Pelo **arquivo**: edite o `params_config.json` (gerado em `Documentos/Análises de Crédito/configs/`)
+ou os padrões em `DEFAULT_PARAMS` em `src/calculations.py`.
 
 Exemplo de `params_config.json`:
 ```json
