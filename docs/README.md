@@ -3,7 +3,7 @@
 Ferramenta que automatiza o processo de avaliação de crédito B2B:
 
 1. Lê o **PDF do Serasa** automaticamente (CNPJ, score, capital social, faturamento, restrições, etc.)
-2. Você informa apenas os dados manuais: **limite solicitado**, **4 notas (1-5)** e **responsável**
+2. Você informa apenas o **limite solicitado** (em reais, com formatação automática) e o **responsável**
 3. Calcula score interno, classificação final e recomendação (regras configuráveis)
 4. **Gera um relatório PDF formatado** (com logo, pronto para enviar) e registra no **histórico**
 5. Permite **consultar o histórico** das análises direto no app e **abrir o PDF** de cada uma
@@ -44,10 +44,10 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
 3. Clique em **"Procurar..."** para selecionar o PDF do Serasa — os dados são **extraídos
    automaticamente** e aparecem na tela para conferência.
 4. Preencha os dados manuais:
-   - **Limite solicitado** (R$)
-   - **Notas 1-5** para: capacidade financeira, histórico de pagamento, perfil operacional e risco jurídico
-   - **Referências comerciais** (Sim/Não)
-   - **Responsável** e **observações**
+   - **Limite solicitado** (R$) — com vírgulas/separador de milhar automáticos
+   - **Responsável**
+   - **Referências comerciais** (Sim/Não) e **observações** (opcionais)
+   - As **notas 1-5** ficam numa seção "avançada" (opcional) e assumem valor 3 por padrão
 5. Clique em **"Executar análise"**.
 6. O resultado (score, classificação e recomendação) aparece na tela, e o programa salva:
    - O **relatório PDF** formatado na pasta `Análises de Crédito/relatorios/`
