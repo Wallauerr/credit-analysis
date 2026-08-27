@@ -9,14 +9,11 @@ __pycache__/
 *.egg-info/
 
 # Generated data / local history
-analysis_history.csv
+analysis_history.json
 outputs/
+params_config.json
 credit-analysis.log
 credit_analysis_config.json
-
-# Excel model (contains client data - keep out of the repository)
-pICOLI E DENEGA.xlsx
-*.xlsx
 
 # Virtual environment
 .venv/
