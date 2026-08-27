@@ -91,7 +91,7 @@ def run():
     print(f'  Capital alert:       {calcs["capital_alert"]}')
     print(f'  >>> RECOMMENDATION:  {calcs["recommendation"]}')
 
-    print(f'\n  File saved at: {result["excel_path"]}')
+    print(f'\n  Report PDF: {result["report_path"]}')
     print(f'  History: {result["history_path"]}')
     input('\nPress Enter to exit...')
 
