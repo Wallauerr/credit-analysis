@@ -4,8 +4,11 @@ a = Analysis(
     ['src\\app.py'],
     pathex=['src'],
     binaries=[],
-    datas=[],
-    hiddenimports=[],
+    datas=[
+        ('assets/credit-analysis.png', 'assets'),
+        ('assets/credit-analysis.ico', 'assets'),
+    ],
+    hiddenimports=['reportlab', 'pdfplumber'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
