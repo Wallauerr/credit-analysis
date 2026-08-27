@@ -34,9 +34,9 @@ LIGHT = colors.HexColor('#f4f5f7')
 MID = colors.HexColor('#6b7280')
 
 RECOMMENDATION_COLORS = {
-    'Approve': colors.HexColor('#1a7f37'),
-    'Approve with limit/down payment': colors.HexColor('#b45309'),
-    'Deny or require collateral': colors.HexColor('#c8102e'),
+    'Aprovar': colors.HexColor('#1a7f37'),
+    'Aprovar com limite/entrada': colors.HexColor('#b45309'),
+    'Negar ou exigir garantia': colors.HexColor('#c8102e'),
 }
 
 
