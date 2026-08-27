@@ -19,25 +19,37 @@ Ferramenta que automatiza o processo de avaliação de crédito B2B:
   - Na instalação, marque a opção **"Add Python to PATH"**
 - **Microsoft Edge/Chrome ou leitor de PDF** para abrir os relatórios gerados
 
-## Instalação (primeira vez)
+## Como usar
 
-Dê dois cliques em **`install.bat`** e aguarde concluir. (só precisa fazer uma vez)
+### Opção A — Executável (.exe)
+Se você recebeu o arquivo `Analise de Credito.exe`, **basta dar dois cliques** nele para
+abrir a janela da aplicação (não precisa instalar Python nem dependências).
 
-## Como usar (interface gráfica)
+### Opção B — Via código (Python)
+1. **Instale as dependências uma vez:**
+   ```bat
+   pip install -r requirements.txt
+   ```
+2. **Abra a interface:**
+   ```bat
+   python src\app.py
+   ```
+
+## Usando a interface
 
 1. Gere o **PDF do Serasa** do CNPJ desejado (como já faz hoje).
-2. Dê dois cliques em **`start.bat`** — abre a janela da aplicação.
+2. Abra a aplicação (`.exe` ou `python src\app.py`).
 
 ### Aba "Nova Análise"
-3. Clique em **"Procurar..."** para selecionar o PDF do Serasa.
-4. Clique em **"Extrair"** para ler os dados do PDF (aparecem na tela para conferência).
-5. Preencha os dados manuais:
+3. Clique em **"Procurar..."** para selecionar o PDF do Serasa — os dados são **extraídos
+   automaticamente** e aparecem na tela para conferência.
+4. Preencha os dados manuais:
    - **Limite solicitado** (R$)
    - **Notas 1-5** para: capacidade financeira, histórico de pagamento, perfil operacional e risco jurídico
    - **Referências comerciais** (Sim/Não)
    - **Responsável** e **observações**
-6. Clique em **"Analisar"**.
-7. O resultado (score, classificação e recomendação) aparece na tela, e o programa salva:
+5. Clique em **"Executar análise"**.
+6. O resultado (score, classificação e recomendação) aparece na tela, e o programa salva:
    - O **relatório PDF** formatado na pasta `Análises de Crédito/relatorios/`
    - O **histórico** em `Análises de Crédito/analysis_history.json`
    - (tudo dentro da pasta `Documentos`)
@@ -91,8 +103,6 @@ credit-analysis/
 ├── main.py               # interface por linha de comando (CLI)
 ├── app.spec              # configuração do PyInstaller (.exe)
 ├── pyproject.toml        # metadados e dependências
-├── install.bat           # instala dependências (1x)
-├── start.bat             # inicia a interface gráfica
 └── build_exe.bat         # gera o executável .exe (Windows)
 ```
 
@@ -106,16 +116,12 @@ instalar nada** — basta dar dois cliques para rodar.
 
 ### Passo a passo (no Windows)
 
-1. Instale as dependências (incluindo o PyInstaller), rodando uma vez:
-   ```bat
-   install.bat
-   ```
-   ou, manualmente:
+1. **Instale as dependências** (incluindo o PyInstaller) uma vez:
    ```bat
    pip install -r requirements.txt
    pip install pyinstaller
    ```
-2. Crie o executável:
+2. **Crie o executável:**
    ```bat
    build_exe.bat
    ```
