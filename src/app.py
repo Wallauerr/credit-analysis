@@ -22,6 +22,57 @@ SCORE_LABELS = {
 }
 
 
+class CurrencyEntry(ttk.Entry):
+    """Campo de entrada monetária em reais com formatação automática.
+
+    O usuário digita o valor (inteiros) e o campo insere o separador de
+    milhar (ponto) automaticamente. Uma vírgula pode ser digitada para as
+    casas decimais. Ex.: digitar 15000 mostra "15.000"; 15000,5 -> "15.000,5".
+
+    Retorna o valor numérico via .get_value().
+    """
+
+    def __init__(self, master, **kwargs):
+        self._value_var = tk.StringVar()
+        kwargs["textvariable"] = self._value_var
+        super().__init__(master, justify="right", **kwargs)
+        self._value_var.trace_add("write", self._format)
+
+    def _format(self, *args):
+        # Remove os próximos callbacks deste rastreio antes de alterar o valor
+        for _mode, cb in list(self._value_var.trace_info()):
+            self._value_var.trace_remove("write", cb)
+
+        text = self._value_var.get()
+
+        # Separa parte inteira da decimal (vírgula = separador decimal)
+        if "," in text:
+            int_raw, dec_raw = text.split(",", 1)
+            dec = "".join(c for c in dec_raw if c.isdigit())[:2]
+        else:
+            int_raw, dec = text, ""
+        int_raw = "".join(c for c in int_raw if c.isdigit())
+
+        int_fmt = f"{int(int_raw):,}".replace(",", ".") if int_raw else ""
+        new_text = int_fmt if not dec else f"{int_fmt},{dec}"
+        if new_text != text:
+            self._value_var.set(new_text)
+
+        # Reinscreve o rastreio
+        self._value_var.trace_add("write", self._format)
+
+    def get_value(self):
+        """Return the numeric float, or None if empty/invalid."""
+        raw = self._value_var.get().strip()
+        if not raw:
+            return None
+        normalized = raw.replace(".", "").replace(",", ".")
+        try:
+            return float(normalized)
+        except ValueError:
+            return None
+
+
 class CreditAnalysisApp:
     def __init__(self, root):
         self.root = root
@@ -251,47 +302,95 @@ class CreditAnalysisApp:
             self.extracted[key] = var
 
     def _build_input_section(self, parent):
-        frame = ttk.LabelFrame(parent, text="2. Dados manuais", padding=12)
+        frame = ttk.LabelFrame(parent, text="2. Dados da análise", padding=12)
         frame.pack(fill="x", padx=16, pady=4)
 
         grid = ttk.Frame(frame)
         grid.pack(fill="x")
 
+        # Campos principais
         ttk.Label(grid, text="Limite solicitado (R$):").grid(row=0, column=0, sticky="w", padx=(0, 8), pady=3)
-        self.limit_var = tk.StringVar()
-        ttk.Entry(grid, textvariable=self.limit_var, width=24).grid(row=0, column=1, sticky="w", pady=3)
+        self.limit_entry = CurrencyEntry(grid, width=24)
+        self.limit_entry.grid(row=0, column=1, sticky="w", pady=3)
 
+        ttk.Label(grid, text="Responsável:").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=3)
+        self.analyst_var = tk.StringVar()
+        config = load_config()
+        self.analyst_var.set(config.get("last_analyst", ""))
+        ttk.Entry(grid, textvariable=self.analyst_var, width=24).grid(row=1, column=1, sticky="w", pady=3)
+
+        ttk.Label(grid, text="Referências comerciais OK?:").grid(row=2, column=0, sticky="w", padx=(0, 8), pady=3)
+        self.ref_var = tk.StringVar(value="Não")
+        ttk.Combobox(grid, textvariable=self.ref_var, values=["Sim", "Não"],
+                     state="readonly", width=22).grid(row=2, column=1, sticky="w", pady=3)
+
+        ttk.Label(grid, text="Observações:").grid(row=3, column=0, sticky="nw", padx=(0, 8), pady=3)
+        self.notes_text = tk.Text(grid, width=50, height=2)
+        self.notes_text.grid(row=3, column=1, sticky="w", pady=3)
+
+        # Seção avançada (notas 1-5) - opcional, pode ser expandida
+        self.adv_open = False
+        adv_header = ttk.Frame(frame)
+        adv_header.pack(fill="x", pady=(10, 0))
+        self.adv_btn = ttk.Button(
+            adv_header, text="▶ Notas da análise (opcional - ver/ajustar)",
+            command=self._toggle_advanced
+        )
+        self.adv_btn.pack(anchor="w")
+
+        self.adv_frame = ttk.Frame(frame)
+        # Note grid will be built inside adv_frame when expanded
+
+        self.adv_hint = ttk.Label(
+            adv_header,
+            text="As notas permitem ajustar a avaliação (1 a 5). "
+                 "Por padrão assumem valor 3 e podem ficar como estão.",
+            foreground="gray", wraplength=700, justify="left",
+        )
+        self.adv_hint.pack(anchor="w", pady=(2, 0))
+
+        # Score vars (default 3)
+        self.score_vars = {
+            "financial": tk.StringVar(value="3"),
+            "payment": tk.StringVar(value="3"),
+            "operational": tk.StringVar(value="3"),
+            "legal": tk.StringVar(value="3"),
+        }
+
+        analyze_btn = ttk.Button(frame, text="Executar análise",
+                                 command=self._analyze,
+                                 width=40)
+        analyze_btn.pack(anchor="w", pady=(12, 0))
+
+    def _toggle_advanced(self):
+        self.adv_open = not self.adv_open
+        if self.adv_open:
+            self.adv_btn.config(text="▼ Notas da análise (clique para ocultar)")
+            self.adv_hint.pack_forget()
+            self._build_advanced_notes()
+        else:
+            self.adv_btn.config(text="▶ Notas da análise (opcional - ver/ajustar)")
+            self.adv_hint.pack(anchor="w", pady=(2, 0))
+            for child in self.adv_frame.winfo_children():
+                child.destroy()
+            self.adv_frame.pack_forget()
+
+    def _build_advanced_notes(self):
+        """Preenche a área das notas 1-5 (gerada sob demanda)."""
+        grid = ttk.Frame(self.adv_frame)
+        grid.pack(fill="x", pady=(6, 0))
         score_rows = [
             ("Capacidade financeira", "financial"),
             ("Histórico de pagamento", "payment"),
             ("Perfil operacional", "operational"),
             ("Risco jurídico", "legal"),
         ]
-        self.score_vars = {}
-        for i, (label, key) in enumerate(score_rows, start=1):
-            ttk.Label(grid, text=f"{label} (1-5):").grid(row=i, column=0, sticky="w", padx=(0, 8), pady=3)
-            self.score_vars[key] = tk.StringVar(value="3")
-            ttk.Entry(grid, textvariable=self.score_vars[key], width=24).grid(row=i, column=1, sticky="w", pady=3)
-
-        ttk.Label(grid, text="Referências comerciais OK?:").grid(row=5, column=0, sticky="w", padx=(0, 8), pady=3)
-        self.ref_var = tk.StringVar(value="Não")
-        ttk.Combobox(grid, textvariable=self.ref_var, values=["Sim", "Não"],
-                     state="readonly", width=22).grid(row=5, column=1, sticky="w", pady=3)
-
-        ttk.Label(grid, text="Responsável:").grid(row=6, column=0, sticky="w", padx=(0, 8), pady=3)
-        self.analyst_var = tk.StringVar()
-        config = load_config()
-        self.analyst_var.set(config.get("last_analyst", ""))
-        ttk.Entry(grid, textvariable=self.analyst_var, width=24).grid(row=6, column=1, sticky="w", pady=3)
-
-        ttk.Label(grid, text="Observações:").grid(row=7, column=0, sticky="nw", padx=(0, 8), pady=3)
-        self.notes_text = tk.Text(grid, width=50, height=2)
-        self.notes_text.grid(row=7, column=1, sticky="w", pady=3)
-
-        analyze_btn = ttk.Button(frame, text="Executar análise",
-                                 command=self._analyze,
-                                 width=40)
-        analyze_btn.pack(anchor="w", pady=(12, 0))
+        for i, (label, key) in enumerate(score_rows):
+            ttk.Label(grid, text=f"{label} (1-5):").grid(
+                row=i, column=0, sticky="w", padx=(0, 8), pady=3)
+            ttk.Entry(grid, textvariable=self.score_vars[key], width=24).grid(
+                row=i, column=1, sticky="w", pady=3)
+        self.adv_frame.pack(fill="x", padx=(4, 0))
 
     def _build_result_section(self, parent):
         frame = ttk.LabelFrame(parent, text="Resultado", padding=12)
@@ -366,18 +465,13 @@ class CreditAnalysisApp:
         if not self.pdf_path:
             return None, "Selecione um arquivo PDF primeiro."
         if self.pdf_data is None:
-            return None, "Clique em 'Extrair' para ler os dados do PDF antes de analisar."
+            return None, "Selecione o PDF do Serasa para extrair os dados antes de analisar."
 
-        limit_raw = self.limit_var.get().strip()
-        if not limit_raw:
+        requested_limit = self.limit_entry.get_value()
+        if requested_limit is None:
             return None, "Informe o limite solicitado."
-        limit_str = limit_raw.replace(".", "").replace(",", ".")
-        try:
-            requested_limit = float(limit_str)
-        except ValueError:
-            return None, "O limite solicitado deve ser um número."
-        if requested_limit < 0:
-            return None, "O limite solicitado não pode ser negativo."
+        if requested_limit <= 0:
+            return None, "O limite solicitado deve ser maior que zero."
 
         scores = []
         for key in ("financial", "payment", "operational", "legal"):
