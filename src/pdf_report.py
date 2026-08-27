@@ -23,9 +23,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from paths import assets_dir, outputs_dir
+from paths import assets_dir, reports_dir
 
-OUTPUT_DIR = outputs_dir()
+OUTPUT_DIR = reports_dir()
 ASSETS_DIR = assets_dir()
 
 PRIMARY = colors.HexColor('#c8102e')   # Sulmag red
