@@ -113,6 +113,11 @@ def parse_serasa_text(text):
             r"\n(\d{3})\s*(?:Risco mínimo|Risco baixo|Risco médio)\s*\n?0\s*[0-9 ]*1000",
             text,
         )
+    if not score_match:
+        score_match = re.search(
+            r"(\d{3})\s*\n?\s*Ris(?:co|k)\s*(?:baixo|mínimo|médio|moderado|alto)\s*\n?\s*A\s*pontua[çc][ãa]o\s*enquadra-se",
+            text,
+        )
     if score_match:
         data["serasa_score"] = int(score_match.group(1))
 
@@ -349,9 +354,11 @@ def _parse_queries(pages_data):
                         dist_y = abs(vw["top"] - ly)
                         dist_x = abs(vw["x0"] - lx)
                         if dist_y < dy_tol and dist_x < dx_tol + 40:
-                            n = int(re.match(r"(\d+)", vw["text"]).group(1))
-                            if best is None or dist_y < best[0]:
-                                best = (dist_y, n)
+                            m = re.match(r"(\d+)", vw["text"])
+                            if m is not None:
+                                n = int(m.group(1))
+                                if best is None or dist_y < best[0]:
+                                    best = (dist_y, n)
         return best[1] if best else None
 
     for words in pages_data:

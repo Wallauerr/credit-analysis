@@ -719,6 +719,9 @@ class CreditAnalysisApp:
             text="Dados extraídos. Confira os valores e preencha os dados manuais.",
             foreground="green",
         )
+        # Se faltarem dados essenciais, abre modal para preenchimento manual
+        if self._get_missing_essential_fields():
+            self.root.after(200, self._open_missing_data_modal)
 
     def _show_extracted(self, data):
         self._set_extracted("cnpj", data.get("cnpj", "-"))
@@ -737,6 +740,123 @@ class CreditAnalysisApp:
     def _set_extracted(self, key, value):
         if key in self.extracted:
             self.extracted[key].set(value)
+
+    # Campos essenciais considerados para a análise mínima
+    ESSENTIAL_FIELDS = [
+        ("cnpj", "CNPJ", "text"),
+        ("legal_name", "Razão social", "text"),
+        ("serasa_score", "Score Serasa (0-1000)", "int"),
+        ("share_capital", "Capital social (R$)", "money"),
+        ("monthly_revenue", "Faturamento mensal estimado (R$)", "money"),
+    ]
+
+    def _get_missing_essential_fields(self):
+        """Retorna a lista de campos essenciais ausentes no pdf_data."""
+        if not self.pdf_data:
+            return list(self.ESSENTIAL_FIELDS)
+        missing = []
+        for key, label, ftype in self.ESSENTIAL_FIELDS:
+            val = self.pdf_data.get(key)
+            if val is None or val == "":
+                missing.append((key, label, ftype))
+        return missing
+
+    def _open_missing_data_modal(self):
+        """Abre um modal para preencher manualmente os campos essenciais ausentes."""
+        missing = self._get_missing_essential_fields()
+        if not missing:
+            return
+
+        modal = tk.Toplevel(self.root)
+        modal.title("Informações em falta no PDF")
+        modal.geometry("520x420")
+        modal.transient(self.root)
+        modal.grab_set()
+
+        wrap = ttk.Frame(modal, padding=16)
+        wrap.pack(fill="both", expand=True)
+
+        ttk.Label(
+            wrap,
+            text=(
+                "O documento não contém todas as informações essenciais para "
+                "a análise.\nPreencha os campos abaixo para continuar:"
+            ),
+            wraplength=470,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 12))
+
+        grid = ttk.Frame(wrap)
+        grid.pack(fill="x")
+
+        entries = {}
+        for i, (key, label, ftype) in enumerate(missing):
+            ttk.Label(grid, text=f"{label}:").grid(
+                row=i, column=0, sticky="w", padx=(0, 8), pady=6
+            )
+            if ftype == "money":
+                entry = CurrencyEntry(grid, width=24)
+            else:
+                entry = ttk.Entry(grid, width=24)
+            entry.grid(row=i, column=1, sticky="w", pady=6)
+            entries[key] = (entry, ftype)
+
+        def on_ok():
+            # Valida e grava os valores no pdf_data
+            for key, (entry, ftype) in entries.items():
+                raw = entry.get().strip()
+                if not raw:
+                    messagebox.showwarning(
+                        "Campo vazio", "Preencha todos os campos para continuar.",
+                        parent=modal,
+                    )
+                    return
+                try:
+                    if ftype == "int":
+                        value = int(raw)
+                    elif ftype == "money":
+                        value = self._parse_money_input(raw)
+                    else:
+                        value = raw
+                except ValueError:
+                    messagebox.showwarning(
+                        "Valor inválido", f"Valor inválido para o campo: {raw}",
+                        parent=modal,
+                    )
+                    return
+                self.pdf_data[key] = value
+            modal.destroy()
+            # Re-exibe os dados e recalcula as notas automáticas
+            self._show_extracted(self.pdf_data)
+            if self.auto_scores_enabled.get():
+                self._apply_auto_scores()
+
+        def on_cancel():
+            modal.destroy()
+
+        btns = ttk.Frame(wrap)
+        btns.pack(side="bottom", pady=(12, 0))
+        ttk.Button(btns, text="Cancelar", command=on_cancel).pack(
+            side="right", padx=6
+        )
+        ttk.Button(btns, text="Salvar", command=on_ok).pack(side="right")
+
+        modal.bind("<Return>", lambda e: on_ok())
+        modal.bind("<Escape>", lambda e: on_cancel())
+
+    @staticmethod
+    def _parse_money_input(raw):
+        """Converte entrada monetária brasileira (ex.: '15000' ou '15.000,50')."""
+        text = raw.strip().replace("R$", "").replace(" ", "")
+        neg = text.startswith("-")
+        if neg:
+            text = text[1:]
+        text = text.replace(".", "").replace(",", ".")
+        try:
+            val = float(text)
+        except ValueError:
+            raise ValueError(raw)
+        return -val if neg else val
 
     def _validate_inputs(self):
         if not self.pdf_path:
@@ -808,7 +928,9 @@ class CreditAnalysisApp:
 
     def _run_analysis(self, inputs):
         try:
-            result = process_analysis(self.pdf_path, inputs)
+            result = process_analysis(
+                self.pdf_path, inputs, pdf_data=self.pdf_data
+            )
             self.root.after(0, self._on_success, result)
         except Exception as e:
             logger.error(f"Falha na análise: {e}", exc_info=True)
