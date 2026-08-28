@@ -84,12 +84,13 @@ class ScrollableFrame(ttk.Frame):
         self.canvas.configure(yscrollcommand=self.vscroll.set)
 
         self.canvas.pack(side="left", fill="both", expand=True)
-        self.vscroll.pack(side="right", fill="y")
 
         self.inner = ttk.Frame(self.canvas)
         self._window_id = self.canvas.create_window(
             (0, 0), window=self.inner, anchor="nw"
         )
+
+        self._can_scroll = False
 
         self.inner.bind("<Configure>", self._on_inner_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
@@ -100,13 +101,33 @@ class ScrollableFrame(ttk.Frame):
         self.inner.bind("<MouseWheel>", self._on_mousewheel)
         self.vscroll.bind("<MouseWheel>", self._on_mousewheel)
 
+    def _update_scrollability(self):
+        """Mostra a scrollbar (e habilita o scroll) apenas quando o conteúdo
+        excede a altura visível do canvas."""
+        content_h = self.canvas.bbox("all")
+        content_h = content_h[3] if content_h else 0
+        vis_h = self.canvas.winfo_height()
+
+        overflow = content_h > vis_h + 1
+        self._can_scroll = overflow
+
+        if overflow:
+            self.vscroll.pack(side="right", fill="y")
+        else:
+            self.vscroll.pack_forget()
+            self.canvas.yview_moveto(0.0)
+
     def _on_inner_configure(self, _event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self._update_scrollability()
 
     def _on_canvas_configure(self, event):
         self.canvas.itemconfigure(self._window_id, width=event.width)
+        self._update_scrollability()
 
     def _on_mousewheel(self, event):
+        if not self._can_scroll:
+            return
         # Windows/macOS: delta é ±120; Linux: pode ser ±1 (units) ou evento diferente
         if event.num == 4:
             self.canvas.yview_scroll(-1, "units")
