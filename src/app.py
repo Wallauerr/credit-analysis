@@ -676,11 +676,12 @@ class CreditAnalysisApp:
         if error:
             messagebox.showwarning("Verifique os dados", error)
             return
+        assert inputs is not None
 
         self.analysing = True
         self.progress.start(12)
         self.result_var.set("Analisando...")
-        save_config(last_pdf_path=self.pdf_path, last_analyst=inputs["analyst"])
+        save_config(last_pdf_path=self.pdf_path or "", last_analyst=inputs["analyst"])
 
         thread = threading.Thread(
             target=self._run_analysis, args=(inputs,), daemon=True
@@ -830,7 +831,7 @@ def main():
         if os.path.exists(icon_path):
             root.iconbitmap(icon_path)
 
-        app = CreditAnalysisApp(root)
+        CreditAnalysisApp(root)
         root.mainloop()
     except Exception as error:
         logger.error(f"Erro ao executar o aplicativo: {error}", exc_info=True)
