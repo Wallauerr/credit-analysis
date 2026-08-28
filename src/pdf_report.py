@@ -209,33 +209,114 @@ def _build_pdf(pdf_data, inputs, calcs, output_path):
 
     # ---------- Scores breakdown (1-5) ----------
     elements.append(Paragraph("Avaliação (notas de 1 a 5)", _section_style()))
+    is_auto = inputs.get("auto_scores", False)
     notas = inputs.get("scores", (0, 0, 0, 0))
-    nota_rows = [
-        ("Capacidade financeira", notas[0]),
-        ("Histórico de pagamento", notas[1]),
-        ("Perfil operacional", notas[2]),
-        ("Risco jurídico", notas[3]),
+    auto_details = inputs.get("auto_scores_details")
+    nota_labels = [
+        "Capacidade financeira",
+        "Histórico de pagamento",
+        "Perfil operacional",
+        "Risco jurídico",
     ]
+    nota_rows = list(zip(nota_labels, notas))
     nota_data = [
         [Paragraph("Critério", kv_bold_style), Paragraph("Nota", kv_bold_style)],
     ] + [
         [Paragraph(k, kv_style), Paragraph(f"<b>{v}</b>", data_style)]
         for k, v in nota_rows
     ]
-    nota_table = Table(nota_data, colWidths=[138 * mm, 40 * mm])
-    nota_table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), LIGHT),
-                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d3d6da")),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("ALIGN", (1, 1), (1, -1), "CENTER"),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ]
+    # Adiciona coluna de justificativa (fonte) quando houver auto-details
+    if is_auto and auto_details:
+        header_row = [
+            Paragraph("Critério", kv_bold_style),
+            Paragraph("Nota", kv_bold_style),
+            Paragraph("Justificativa automática", kv_bold_style),
+        ]
+        detail_keys = ["financial", "payment_history", "operational", "legal"]
+        detail_rows = [header_row]
+        for label, key in zip(nota_labels, detail_keys):
+            d = auto_details.get(key)
+            just = d[1] if d else ""
+            detail_rows.append(
+                [
+                    Paragraph(label, kv_style),
+                    Paragraph(str(notas[nota_labels.index(label)] if not isinstance(notas[0], tuple) else notas[nota_labels.index(label)][0]), data_style),
+                    Paragraph(just or "-", data_style),
+                ]
+            )
+        nota_table = Table(detail_rows, colWidths=[70 * mm, 18 * mm, 90 * mm])
+        nota_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), LIGHT),
+                    ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d3d6da")),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (1, 1), (1, -1), "CENTER"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
         )
-    )
+    else:
+        nota_table = Table(nota_data, colWidths=[138 * mm, 40 * mm])
+        nota_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), LIGHT),
+                    ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d3d6da")),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (1, 1), (1, -1), "CENTER"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
     elements.append(nota_table)
+    if is_auto:
+        elements.append(
+            Paragraph(
+                "Notas calculadas automaticamente a partir do documento Serasa.",
+                ParagraphStyle(
+                    "NoteSrc",
+                    parent=styles["Normal"],
+                    fontSize=8.5,
+                    textColor=MID,
+                ),
+            )
+        )
+
+    # ---------- Hard blocks / travas ----------
+    block_reason = calcs.get("block_reason")
+    if block_reason:
+        elements.append(Spacer(1, 5 * mm))
+        blk_box = Table(
+            [
+                [
+                    Paragraph(
+                        f"<b>ALERTA/TRAVA: {block_reason}</b>",
+                        ParagraphStyle(
+                            "Blk",
+                            parent=styles["Normal"],
+                            fontName="Helvetica-Bold",
+                            fontSize=11,
+                            textColor=colors.white,
+                            alignment=TA_CENTER,
+                        ),
+                    )
+                ]
+            ],
+            colWidths=[178 * mm],
+        )
+        blk_box.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#b00020")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        elements.append(blk_box)
 
     # ---------- Recommendation (highlight) ----------
     elements.append(Spacer(1, 6 * mm))

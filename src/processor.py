@@ -76,7 +76,12 @@ def process_analysis(pdf_path, inputs, report_path=None):
         calcs["block_reason"] = block_reason
 
     # 5. Generate formatted PDF report
-    output_path = generate_report(pdf_data, inputs, calcs, output_path=report_path)
+    report_inputs = dict(inputs)
+    if auto_scores_enabled and auto_details:
+        report_inputs["auto_scores"] = True
+        report_inputs["auto_scores_details"] = auto_details
+        report_inputs["scores"] = scores
+    output_path = generate_report(pdf_data, report_inputs, calcs, output_path=report_path)
 
     # 6. Record JSON history
     final_history = add_to_history(pdf_data, inputs, calcs, output_path)
