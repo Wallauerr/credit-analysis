@@ -412,7 +412,6 @@ class CreditAnalysisApp:
     def _build_footer(self, parent):
         footer = ttk.Frame(parent, padding=(16, 10))
         footer.pack(fill="x")
-        ttk.Button(footer, text="Analisar", command=self._analyze).pack(side="right", padx=(8, 0))
         ttk.Button(footer, text="Abrir pasta de saída", command=self._open_output).pack(side="right")
         self.progress = ttk.Progressbar(footer, mode="indeterminate")
         self.progress.pack(side="left", fill="x", expand=True, padx=(0, 12))
