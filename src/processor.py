@@ -13,6 +13,7 @@ import os
 
 from pdf_extractor import extract_pdf_data
 from calculations import calculate
+from auto_scores import calculate_auto_scores, check_hard_blocks
 from pdf_report import generate_report
 from history import add_to_history
 from paths import reports_dir
@@ -27,13 +28,17 @@ def process_analysis(pdf_path, inputs, report_path=None):
     pdf_path: str, path to the Serasa PDF
     inputs: dict with:
         - requested_limit (float)
-        - scores (tuple 4x, 1-5)
+        - scores (tuple 4x, 1-5) or None if auto
+        - auto_scores (bool, optional) - True to use automatic scoring
+        - manual_overrides (dict, optional) - keys: financial/payment_history/
+          operational/legal with manual score values
         - references (str 'Sim'/'Nao')
         - analyst (str)
         - notes (str)
     report_path: str, optional path for the generated PDF
 
-    Returns a dict with 'pdf_data', 'calcs', 'report_path', 'history_path'.
+    Returns a dict with 'pdf_data', 'calcs', 'report_path', 'history_path',
+    'auto_scores_details'.
     Raises FileNotFoundError if the PDF is missing.
     """
     if not os.path.exists(pdf_path):
@@ -42,19 +47,49 @@ def process_analysis(pdf_path, inputs, report_path=None):
     # 1. Extract PDF data
     pdf_data = extract_pdf_data(pdf_path)
 
-    # 2. Calculate (uses editable PARAMS from config)
-    scores = inputs.get("scores", (3, 3, 3, 3))
-    calcs = calculate(pdf_data, scores, inputs.get("requested_limit"))
+    # 2. Determine scores (auto or manual)
+    auto_scores_enabled = inputs.get("auto_scores", False)
+    manual_overrides = inputs.get("manual_overrides", {})
+    requested_limit = inputs.get("requested_limit")
 
-    # 3. Generate formatted PDF report
+    if auto_scores_enabled:
+        auto_details = calculate_auto_scores(pdf_data, requested_limit)
+        scores = (
+            manual_overrides.get("financial", auto_details["financial"][0]),
+            manual_overrides.get("payment_history", auto_details["payment_history"][0]),
+            manual_overrides.get("operational", auto_details["operational"][0]),
+            manual_overrides.get("legal", auto_details["legal"][0]),
+        )
+    else:
+        scores = inputs.get("scores", (3, 3, 3, 3))
+        auto_details = None
+
+    # 3. Calculate (uses editable PARAMS from config)
+    calcs = calculate(pdf_data, scores, requested_limit)
+
+    # 4. Check hard blocks (override recommendation if needed)
+    blocked, override_rec, block_reason = check_hard_blocks(
+        pdf_data, requested_limit
+    )
+    if blocked and override_rec:
+        calcs["recommendation"] = override_rec
+        calcs["block_reason"] = block_reason
+
+    # 5. Generate formatted PDF report
     output_path = generate_report(pdf_data, inputs, calcs, output_path=report_path)
 
-    # 4. Record JSON history
+    # 6. Record JSON history
     final_history = add_to_history(pdf_data, inputs, calcs, output_path)
 
-    return {
+    result = {
         "pdf_data": pdf_data,
         "calcs": calcs,
         "report_path": output_path,
         "history_path": final_history,
     }
+
+    if auto_scores_enabled:
+        result["auto_scores_details"] = auto_details
+        result["scores_used"] = scores
+
+    return result
