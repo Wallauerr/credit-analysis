@@ -197,20 +197,39 @@ class CreditAnalysisApp:
 
         top = ttk.Frame(body, padding=(12, 10))
         top.pack(fill="x")
-        ttk.Label(top, text="Histórico de análises",
-                  font=("Segoe UI", 14, "bold")).pack(side="left")
-        ttk.Button(top, text="Atualizar", command=self._refresh_history).pack(side="right")
+        ttk.Label(
+            top, text="Histórico de análises", font=("Segoe UI", 14, "bold")
+        ).pack(side="left")
+        ttk.Button(top, text="Atualizar", command=self._refresh_history).pack(
+            side="right"
+        )
 
-        info = ttk.Label(body, text="A lista mostra todas as análises salvas. Selecione uma e clique "
-                                    "em 'Abrir PDF' para visualizar o relatório gerado.",
-                         foreground="gray", wraplength=750, justify="left")
+        info = ttk.Label(
+            body,
+            text="A lista mostra todas as análises salvas. Selecione uma e clique "
+            "em 'Abrir PDF' para visualizar o relatório gerado.",
+            foreground="gray",
+            wraplength=750,
+            justify="left",
+        )
         info.pack(anchor="w", padx=12, pady=(0, 6))
 
-        columns = ("date", "name", "cnpj", "score", "class", "recommendation", "analyst")
+        columns = (
+            "date",
+            "name",
+            "cnpj",
+            "score",
+            "class",
+            "recommendation",
+            "analyst",
+        )
         body_list = ttk.Frame(body)
         body_list.pack(fill="both", expand=True, padx=(12, 0), pady=6)
         self.history_tree = ttk.Treeview(
-            body_list, columns=columns, show="headings", selectmode="browse",
+            body_list,
+            columns=columns,
+            show="headings",
+            selectmode="browse",
             height=12,
         )
         self.history_tree.heading("date", text="Data")
@@ -229,17 +248,21 @@ class CreditAnalysisApp:
         self.history_tree.column("recommendation", width=200)
         self.history_tree.column("analyst", width=90)
 
-        vsb = ttk.Scrollbar(body_list, orient="vertical", command=self.history_tree.yview)
+        vsb = ttk.Scrollbar(
+            body_list, orient="vertical", command=self.history_tree.yview
+        )
         self.history_tree.configure(yscrollcommand=vsb.set)
         self.history_tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="left", fill="y")
 
         bottom = ttk.Frame(body, padding=12)
         bottom.pack(fill="x")
-        ttk.Button(bottom, text="Abrir PDF selecionado",
-                   command=self._open_selected_report).pack(side="left")
-        ttk.Button(bottom, text="Abrir pasta de relatórios",
-                   command=self._open_output).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            bottom, text="Abrir PDF selecionado", command=self._open_selected_report
+        ).pack(side="left")
+        ttk.Button(
+            bottom, text="Abrir pasta de relatórios", command=self._open_output
+        ).pack(side="left", padx=(8, 0))
 
     def _build_config_tab(self):
         tab = self.tab_config
@@ -248,11 +271,19 @@ class CreditAnalysisApp:
         padding = ttk.Frame(scroller.inner, padding=16)
         padding.pack(fill="x")
 
-        ttk.Label(padding, text="Configuração de parâmetros de cálculo",
-                  font=("Segoe UI", 14, "bold")).pack(anchor="w")
-        ttk.Label(padding, text="Edite os parâmetros usados na lógica de cálculo. As alterações "
-                                "são salvas em params_config.json e valem para as próximas análises.",
-                  foreground="gray", wraplength=750, justify="left").pack(anchor="w", pady=(0, 10))
+        ttk.Label(
+            padding,
+            text="Configuração de parâmetros de cálculo",
+            font=("Segoe UI", 14, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            padding,
+            text="Edite os parâmetros usados na lógica de cálculo. As alterações "
+            "são salvas em params_config.json e valem para as próximas análises.",
+            foreground="gray",
+            wraplength=750,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 10))
 
         self.params_vars = {}
 
@@ -309,7 +340,8 @@ class CreditAnalysisApp:
         actions.pack(fill="x", pady=(12, 0))
         ttk.Button(actions, text="Salvar", command=self._save_params).pack(side="left")
         ttk.Button(actions, text="Restaurar padrões", command=self._reset_params).pack(
-            side="left", padx=(8, 0))
+            side="left", padx=(8, 0)
+        )
         self.params_status = ttk.Label(actions, text="", foreground="green")
         self.params_status.pack(side="left", padx=(12, 0))
 
@@ -335,10 +367,16 @@ class CreditAnalysisApp:
     def _build_header(self, parent):
         header = ttk.Frame(parent, padding=(16, 12))
         header.pack(fill="x")
-        ttk.Label(header, text="Análise de Crédito Automatizada",
-                  font=("Segoe UI", 16, "bold")).pack(anchor="w")
-        ttk.Label(header, text="PDF Serasa  →  Relatório PDF formatado + histórico",
-                  font=("Segoe UI", 10)).pack(anchor="w")
+        ttk.Label(
+            header,
+            text="Análise de Crédito Automatizada",
+            font=("Segoe UI", 16, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            header,
+            text="PDF Serasa  →  Relatório PDF formatado + histórico",
+            font=("Segoe UI", 10),
+        ).pack(anchor="w")
 
     def _build_pdf_section(self, parent):
         frame = ttk.LabelFrame(parent, text="1. PDF de origem (Serasa)", padding=12)
@@ -352,13 +390,17 @@ class CreditAnalysisApp:
         )
         ttk.Button(row, text="Procurar...", command=self._browse_pdf).pack(side="left")
 
-        self.pdf_status = ttk.Label(frame, text="Selecione o PDF do Serasa. Os dados são extraídos "
-                                                "automaticamente.",
-                                    foreground="gray")
+        self.pdf_status = ttk.Label(
+            frame,
+            text="Selecione o PDF do Serasa. Os dados são extraídos automaticamente.",
+            foreground="gray",
+        )
         self.pdf_status.pack(anchor="w", pady=(8, 0))
 
     def _build_extracted_section(self, parent):
-        frame = ttk.LabelFrame(parent, text="Dados extraídos (confira antes da análise)", padding=12)
+        frame = ttk.LabelFrame(
+            parent, text="Dados extraídos (confira antes da análise)", padding=12
+        )
         frame.pack(fill="x", padx=16, pady=4)
 
         self.extracted = {}
@@ -386,22 +428,37 @@ class CreditAnalysisApp:
         grid.pack(fill="x")
 
         # Campos principais
-        ttk.Label(grid, text="Limite solicitado (R$):").grid(row=0, column=0, sticky="w", padx=(0, 8), pady=3)
+        ttk.Label(grid, text="Limite solicitado (R$):").grid(
+            row=0, column=0, sticky="w", padx=(0, 8), pady=3
+        )
         self.limit_entry = CurrencyEntry(grid, width=24)
         self.limit_entry.grid(row=0, column=1, sticky="w", pady=3)
 
-        ttk.Label(grid, text="Responsável:").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=3)
+        ttk.Label(grid, text="Responsável:").grid(
+            row=1, column=0, sticky="w", padx=(0, 8), pady=3
+        )
         self.analyst_var = tk.StringVar()
         config = load_config()
         self.analyst_var.set(config.get("last_analyst", ""))
-        ttk.Entry(grid, textvariable=self.analyst_var, width=24).grid(row=1, column=1, sticky="w", pady=3)
+        ttk.Entry(grid, textvariable=self.analyst_var, width=24).grid(
+            row=1, column=1, sticky="w", pady=3
+        )
 
-        ttk.Label(grid, text="Referências comerciais OK?:").grid(row=2, column=0, sticky="w", padx=(0, 8), pady=3)
+        ttk.Label(grid, text="Referências comerciais OK?:").grid(
+            row=2, column=0, sticky="w", padx=(0, 8), pady=3
+        )
         self.ref_var = tk.StringVar(value="Não")
-        ttk.Combobox(grid, textvariable=self.ref_var, values=["Sim", "Não"],
-                     state="readonly", width=22).grid(row=2, column=1, sticky="w", pady=3)
+        ttk.Combobox(
+            grid,
+            textvariable=self.ref_var,
+            values=["Sim", "Não"],
+            state="readonly",
+            width=22,
+        ).grid(row=2, column=1, sticky="w", pady=3)
 
-        ttk.Label(grid, text="Observações:").grid(row=3, column=0, sticky="nw", padx=(0, 8), pady=3)
+        ttk.Label(grid, text="Observações:").grid(
+            row=3, column=0, sticky="nw", padx=(0, 8), pady=3
+        )
         self.notes_text = tk.Text(grid, width=50, height=2)
         self.notes_text.grid(row=3, column=1, sticky="w", pady=3)
 
@@ -410,8 +467,9 @@ class CreditAnalysisApp:
         adv_header = ttk.Frame(frame)
         adv_header.pack(fill="x", pady=(10, 0))
         self.adv_btn = ttk.Button(
-            adv_header, text="▶ Notas da análise (opcional - ver/ajustar)",
-            command=self._toggle_advanced
+            adv_header,
+            text="▶ Notas da análise (opcional - ver/ajustar)",
+            command=self._toggle_advanced,
         )
         self.adv_btn.pack(anchor="w")
 
@@ -421,8 +479,10 @@ class CreditAnalysisApp:
         self.adv_hint = ttk.Label(
             adv_header,
             text="As notas permitem ajustar a avaliação (1 a 5). "
-                 "Por padrão assumem valor 3 e podem ficar como estão.",
-            foreground="gray", wraplength=700, justify="left",
+            "Por padrão assumem valor 3 e podem ficar como estão.",
+            foreground="gray",
+            wraplength=700,
+            justify="left",
         )
         self.adv_hint.pack(anchor="w", pady=(2, 0))
 
@@ -434,9 +494,9 @@ class CreditAnalysisApp:
             "legal": tk.StringVar(value="3"),
         }
 
-        analyze_btn = ttk.Button(frame, text="Executar análise",
-                                 command=self._analyze,
-                                 width=40)
+        analyze_btn = ttk.Button(
+            frame, text="Executar análise", command=self._analyze, width=40
+        )
         analyze_btn.pack(anchor="w", pady=(12, 0))
 
     def _toggle_advanced(self):
@@ -464,32 +524,53 @@ class CreditAnalysisApp:
         ]
         for i, (label, key) in enumerate(score_rows):
             ttk.Label(grid, text=f"{label} (1-5):").grid(
-                row=i, column=0, sticky="w", padx=(0, 8), pady=3)
+                row=i, column=0, sticky="w", padx=(0, 8), pady=3
+            )
             ttk.Entry(grid, textvariable=self.score_vars[key], width=24).grid(
-                row=i, column=1, sticky="w", pady=3)
+                row=i, column=1, sticky="w", pady=3
+            )
         self.adv_frame.pack(fill="x", padx=(4, 0))
 
     def _build_result_section(self, parent):
         frame = ttk.LabelFrame(parent, text="Resultado", padding=12)
         frame.pack(fill="both", expand=True, padx=16, pady=8)
 
-        self.result_var = tk.StringVar(value="Execute a análise para ver a recomendação aqui.")
-        ttk.Label(frame, textvariable=self.result_var, wraplength=700, justify="left",
-                  font=("Segoe UI", 11)).pack(fill="x")
+        self.result_var = tk.StringVar(
+            value="Execute a análise para ver a recomendação aqui."
+        )
+        ttk.Label(
+            frame,
+            textvariable=self.result_var,
+            wraplength=700,
+            justify="left",
+            font=("Segoe UI", 11),
+        ).pack(fill="x")
 
         self.recommendation_var = tk.StringVar()
-        ttk.Label(frame, textvariable=self.recommendation_var,
-                  font=("Segoe UI", 14, "bold"), foreground="#1a73e8",
-                  wraplength=700, justify="left").pack(anchor="w", pady=(8, 0))
+        ttk.Label(
+            frame,
+            textvariable=self.recommendation_var,
+            font=("Segoe UI", 14, "bold"),
+            foreground="#1a73e8",
+            wraplength=700,
+            justify="left",
+        ).pack(anchor="w", pady=(8, 0))
 
         self.file_var = tk.StringVar()
-        ttk.Label(frame, textvariable=self.file_var, foreground="gray", wraplength=700,
-                  justify="left").pack(anchor="w", pady=(4, 0))
+        ttk.Label(
+            frame,
+            textvariable=self.file_var,
+            foreground="gray",
+            wraplength=700,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 0))
 
     def _build_footer(self, parent):
         footer = ttk.Frame(parent, padding=(16, 10))
         footer.pack(fill="x")
-        ttk.Button(footer, text="Abrir pasta de saída", command=self._open_output).pack(side="right")
+        ttk.Button(footer, text="Abrir pasta de saída", command=self._open_output).pack(
+            side="right"
+        )
         self.progress = ttk.Progressbar(footer, mode="indeterminate")
         self.progress.pack(side="left", fill="x", expand=True, padx=(0, 12))
 
@@ -497,7 +578,9 @@ class CreditAnalysisApp:
     def _browse_pdf(self):
         path = filedialog.askopenfilename(
             title="Selecione o PDF do Serasa",
-            initialdir=os.path.dirname(self.last_pdf_path) if self.last_pdf_path else "",
+            initialdir=os.path.dirname(self.last_pdf_path)
+            if self.last_pdf_path
+            else "",
             filetypes=[("Arquivos PDF", "*.pdf"), ("Todos os arquivos", "*.*")],
         )
         if path:
@@ -511,26 +594,36 @@ class CreditAnalysisApp:
             messagebox.showwarning("Nenhum PDF", "Selecione um arquivo PDF primeiro.")
             return
         if not os.path.exists(self.pdf_path):
-            messagebox.showerror("Erro", f"Arquivo PDF não encontrado:\n{self.pdf_path}")
+            messagebox.showerror(
+                "Erro", f"Arquivo PDF não encontrado:\n{self.pdf_path}"
+            )
             return
         try:
             self.pdf_data = extract_pdf_data(self.pdf_path)
         except Exception as e:
             logger.error(f"Falha ao extrair dados do PDF: {e}", exc_info=True)
-            messagebox.showerror("Erro de extração", f"Não foi possível ler o PDF:\n{e}")
+            messagebox.showerror(
+                "Erro de extração", f"Não foi possível ler o PDF:\n{e}"
+            )
             return
         self._show_extracted(self.pdf_data)
-        self.pdf_status.config(text="Dados extraídos. Confira os valores e preencha os dados manuais.",
-                               foreground="green")
+        self.pdf_status.config(
+            text="Dados extraídos. Confira os valores e preencha os dados manuais.",
+            foreground="green",
+        )
 
     def _show_extracted(self, data):
         self._set_extracted("cnpj", data.get("cnpj", "-"))
         self._set_extracted("legal_name", data.get("legal_name", "-"))
         self._set_extracted("serasa_score", str(data.get("serasa_score", "-")))
         capital = data.get("share_capital")
-        self._set_extracted("share_capital", f"R$ {capital:,.2f}" if capital is not None else "-")
+        self._set_extracted(
+            "share_capital", f"R$ {capital:,.2f}" if capital is not None else "-"
+        )
         revenue = data.get("monthly_revenue")
-        self._set_extracted("monthly_revenue", f"R$ {revenue:,.2f}" if revenue is not None else "-")
+        self._set_extracted(
+            "monthly_revenue", f"R$ {revenue:,.2f}" if revenue is not None else "-"
+        )
         self._set_extracted("segment", data.get("segment", "-"))
 
     def _set_extracted(self, key, value):
@@ -541,7 +634,10 @@ class CreditAnalysisApp:
         if not self.pdf_path:
             return None, "Selecione um arquivo PDF primeiro."
         if self.pdf_data is None:
-            return None, "Selecione o PDF do Serasa para extrair os dados antes de analisar."
+            return (
+                None,
+                "Selecione o PDF do Serasa para extrair os dados antes de analisar.",
+            )
 
         requested_limit = self.limit_entry.get_value()
         if requested_limit is None:
@@ -560,7 +656,9 @@ class CreditAnalysisApp:
                 return None, f"A nota de '{key}' deve estar entre 1 e 5."
             scores.append(val)
 
-        references = "Sim" if self.ref_var.get().strip().lower().startswith("s") else "Não"
+        references = (
+            "Sim" if self.ref_var.get().strip().lower().startswith("s") else "Não"
+        )
 
         inputs = {
             "requested_limit": requested_limit,
@@ -584,7 +682,9 @@ class CreditAnalysisApp:
         self.result_var.set("Analisando...")
         save_config(last_pdf_path=self.pdf_path, last_analyst=inputs["analyst"])
 
-        thread = threading.Thread(target=self._run_analysis, args=(inputs,), daemon=True)
+        thread = threading.Thread(
+            target=self._run_analysis, args=(inputs,), daemon=True
+        )
         thread.start()
 
     def _run_analysis(self, inputs):
@@ -629,21 +729,27 @@ class CreditAnalysisApp:
             self.history_tree.delete(item)
         records = load_history()
         for rec in reversed(records):
-            self.history_tree.insert("", "end", values=(
-                rec.get("analysis_date", ""),
-                rec.get("legal_name", ""),
-                rec.get("cnpj", ""),
-                rec.get("internal_score", ""),
-                rec.get("final_class", ""),
-                rec.get("recommendation", ""),
-                rec.get("analyst", ""),
-            ))
+            self.history_tree.insert(
+                "",
+                "end",
+                values=(
+                    rec.get("analysis_date", ""),
+                    rec.get("legal_name", ""),
+                    rec.get("cnpj", ""),
+                    rec.get("internal_score", ""),
+                    rec.get("final_class", ""),
+                    rec.get("recommendation", ""),
+                    rec.get("analyst", ""),
+                ),
+            )
 
     def _open_selected_report(self):
         selection = self.history_tree.selection()
         if not selection:
-            messagebox.showinfo("Seleção", "Selecione uma análise na lista."
-                                            "\n\nO relatório PDF será aberto.")
+            messagebox.showinfo(
+                "Seleção",
+                "Selecione uma análise na lista.\n\nO relatório PDF será aberto.",
+            )
             return
         # Map tree display back to record by using its displayed row index
         records = list(reversed(load_history()))
@@ -653,8 +759,9 @@ class CreditAnalysisApp:
             if report_path and os.path.exists(report_path):
                 self._open_file(report_path)
             else:
-                messagebox.showinfo("Não encontrado",
-                                    f"O PDF não foi encontrado:\n{report_path}")
+                messagebox.showinfo(
+                    "Não encontrado", f"O PDF não foi encontrado:\n{report_path}"
+                )
         else:
             messagebox.showinfo("Seleção", "Nenhuma análise selecionada.")
 
@@ -667,20 +774,29 @@ class CreditAnalysisApp:
                 new_params[key] = float(raw)
             # Validate weights sum ~ 1.0
             weights = sum(
-                new_params[k] for k in (
-                    "weight_financial", "weight_payment_history",
-                    "weight_operational", "weight_legal")
+                new_params[k]
+                for k in (
+                    "weight_financial",
+                    "weight_payment_history",
+                    "weight_operational",
+                    "weight_legal",
+                )
             )
             if abs(weights - 1.0) > 0.001:
                 messagebox.showwarning(
                     "Pesos inválidos",
-                    f"A soma dos pesos deve ser 1.0, mas é {weights:.3f}. Corrija antes de salvar.")
+                    f"A soma dos pesos deve ser 1.0, mas é {weights:.3f}. Corrija antes de salvar.",
+                )
                 return
             save_params(new_params)
-            self.params_status.config(text="Parâmetros salvos com sucesso!", foreground="green")
+            self.params_status.config(
+                text="Parâmetros salvos com sucesso!", foreground="green"
+            )
             self.params_status.after(4000, lambda: self.params_status.config(text=""))
         except ValueError:
-            messagebox.showerror("Valor inválido", "Todos os parâmetros devem ser números.")
+            messagebox.showerror(
+                "Valor inválido", "Todos os parâmetros devem ser números."
+            )
         except Exception as e:
             logger.error(f"Falha ao salvar parâmetros: {e}", exc_info=True)
             messagebox.showerror("Erro", f"Não foi possível salvar os parâmetros:\n{e}")
@@ -688,8 +804,10 @@ class CreditAnalysisApp:
     def _reset_params(self):
         for key, var in self.params_vars.items():
             var.set(DEFAULT_PARAMS.get(key, ""))
-        self.params_status.config(text="Valores padrão restaurados. Clique em 'Salvar' para aplicar.",
-                                  foreground="blue")
+        self.params_status.config(
+            text="Valores padrão restaurados. Clique em 'Salvar' para aplicar.",
+            foreground="blue",
+        )
 
     # ================= UTILITÁRIOS =================
     def _open_output(self):

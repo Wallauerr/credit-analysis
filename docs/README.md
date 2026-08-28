@@ -15,22 +15,27 @@ Ferramenta que automatiza o processo de avaliação de crédito B2B:
 ## Requisitos
 
 - **Windows** com Python 3 instalado
-  - Baixe em: https://www.python.org/downloads/
+  - Baixe em: <https://www.python.org/downloads/>
   - Na instalação, marque a opção **"Add Python to PATH"**
 - **Microsoft Edge/Chrome ou leitor de PDF** para abrir os relatórios gerados
 
 ## Como usar
 
 ### Opção A — Executável (.exe)
+
 Se você recebeu o arquivo `Analise de Credito.exe`, **basta dar dois cliques** nele para
 abrir a janela da aplicação (não precisa instalar Python nem dependências).
 
 ### Opção B — Via código (Python)
+
 1. **Instale as dependências uma vez:**
+
    ```bat
    pip install -r requirements.txt
    ```
+
 2. **Abra a interface:**
+
    ```bat
    python src\app.py
    ```
@@ -41,6 +46,7 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
 2. Abra a aplicação (`.exe` ou `python src\app.py`).
 
 ### Aba "Nova Análise"
+
 3. Clique em **"Procurar..."** para selecionar o PDF do Serasa — os dados são **extraídos
    automaticamente** e aparecem na tela para conferência.
 4. Preencha os dados manuais:
@@ -55,10 +61,12 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
    - (tudo dentro da pasta `Documentos`)
 
 ### Aba "Histórico"
+
 - Lista **todas as análises salvas** (data, razão social, CNPJ, score, classe, recomendação, analista).
 - Selecione uma e clique em **"Abrir PDF selecionado"** para reabrir o relatório gerado.
 
 ### Aba "Configuração"
+
 - Permite **editar a lógica de cálculo** sem mexer no código:
   - Pesos das notas
   - Limites de classificação interna e Serasa
@@ -117,25 +125,34 @@ instalar nada** — basta dar dois cliques para rodar.
 ### Passo a passo (no Windows)
 
 1. **Instale as dependências** (incluindo o PyInstaller) uma vez:
+
    ```bat
    pip install -r requirements.txt
    pip install pyinstaller
    ```
+
 2. **Crie o executável:**
+
    ```bat
    build_exe.bat
    ```
+
    ou, manualmente:
+
    ```bat
    pyinstaller --clean --noconfirm app.spec
    ```
+
 3. O executável será gerado em:
+
    ```
    dist\Analise de Credito.exe
    ```
+
 4. Para distribuir, basta enviar esse arquivo único a quem precisar usar a ferramenta.
 
 ### Observações sobre o `.exe`
+
 - O arquivo **`app.spec`** já está configurado para gerar um **`.exe` sem console** (só a janela
   gráfica) e **embutir o logo** (usado no relatório PDF) e o ícone do app.
 - Como o `.exe` é "portátil", os dados gerados (`relatorios/`, `configs/`, `analysis_history.json`)
@@ -150,6 +167,7 @@ Pelo **arquivo**: edite o `params_config.json` (gerado em `Documentos/Análises 
 ou os padrões em `DEFAULT_PARAMS` em `src/calculations.py`.
 
 Exemplo de `params_config.json`:
+
 ```json
 {
   "weight_financial": 0.4,

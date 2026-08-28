@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 
 from paths import config_file

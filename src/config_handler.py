@@ -2,6 +2,7 @@
 Configuration handler: JSON persistence of both the UI settings
 (last used PDF/analyst) and the editable calculation parameters.
 """
+
 import json
 import os
 
@@ -35,7 +36,9 @@ def load_config():
 
 
 def save_config(last_pdf_path="", last_analyst=""):
-    _write_json(UI_CONFIG_FILE, {"last_pdf_path": last_pdf_path, "last_analyst": last_analyst})
+    _write_json(
+        UI_CONFIG_FILE, {"last_pdf_path": last_pdf_path, "last_analyst": last_analyst}
+    )
 
 
 # ---------- Calculation parameters ----------

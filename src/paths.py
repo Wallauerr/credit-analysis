@@ -12,30 +12,32 @@ the frozen EXE:
 
 Only the bundled assets (logo/icon) come from the EXE / source tree.
 """
+
 import os
 import sys
 
-MAIN_FOLDER_NAME = 'Análises de Crédito'
-CONFIG_SUBFOLDER = 'configs'
-REPORTS_SUBFOLDER = 'relatorios'
-HISTORY_FILENAME = 'analysis_history.json'
+MAIN_FOLDER_NAME = "Análises de Crédito"
+CONFIG_SUBFOLDER = "configs"
+REPORTS_SUBFOLDER = "relatorios"
+HISTORY_FILENAME = "analysis_history.json"
 
 
 def _is_frozen():
-    return getattr(sys, 'frozen', False)
+    return getattr(sys, "frozen", False)
 
 
 def _documents_dir():
     """Return the user's Documents folder (Windows / macOS / Linux)."""
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         # Prefer the real Documents via shell folders, fall back to a guess
         try:
             import winreg
+
             key = winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER,
-                r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders',
+                r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders",
             )
-            value, _ = winreg.QueryValueEx(key, 'Personal')
+            value, _ = winreg.QueryValueEx(key, "Personal")
             value = os.path.expandvars(value)
             winreg.CloseKey(key)
             if value:
@@ -43,11 +45,11 @@ def _documents_dir():
         except Exception:
             pass
         # Fallback: default Windows user profile
-        return os.path.join(os.path.expanduser('~'), 'Documents')
+        return os.path.join(os.path.expanduser("~"), "Documents")
 
     # macOS / Linux
-    home = os.path.expanduser('~')
-    for name in ('Documents', 'Documentos'):
+    home = os.path.expanduser("~")
+    for name in ("Documents", "Documentos"):
         candidate = os.path.join(home, name)
         if os.path.isdir(candidate):
             return candidate
@@ -88,6 +90,8 @@ def config_file(name):
 def assets_dir():
     """Path to bundled assets (logo/icon)."""
     if _is_frozen():
-        base = getattr(sys, '_MEIPASS', app_dir())
-        return os.path.join(base, 'assets')
-    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets')
+        base = getattr(sys, "_MEIPASS", app_dir())
+        return os.path.join(base, "assets")
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets"
+    )
