@@ -928,7 +928,9 @@ class CreditAnalysisApp:
 
     def _run_analysis(self, inputs):
         try:
-            result = process_analysis(self.pdf_path, inputs)
+            result = process_analysis(
+                self.pdf_path, inputs, pdf_data=self.pdf_data
+            )
             self.root.after(0, self._on_success, result)
         except Exception as e:
             logger.error(f"Falha na análise: {e}", exc_info=True)
