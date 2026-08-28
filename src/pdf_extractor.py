@@ -57,13 +57,20 @@ def extract_pdf_data(pdf_path):
     import pdfplumber
 
     all_text = ""
+    pages_data = []
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
                 all_text += text + "\n"
+            words = page.extract_words(
+                keep_blank_chars=True, x_tolerance=2, y_tolerance=2
+            )
+            pages_data.append(words)
 
-    return parse_serasa_text(all_text)
+    data = parse_serasa_text(all_text)
+    data.update(_parse_annotations(pages_data))
+    return data
 
 
 def parse_serasa_text(text):
@@ -197,6 +204,141 @@ def parse_serasa_text(text):
     if seg_match:
         data["segment"] = seg_match.group(1).strip()
 
+    # --- Default probability ---
+    prob_match = re.search(r"([\d,]+)%\s*(?:Mínimo|Baixo|Moderado|Alto)", text)
+    if prob_match:
+        data["default_probability"] = parse_money(f"R$ {prob_match.group(1)}")
+        if data["default_probability"] is not None:
+            data["default_probability"] = data["default_probability"] / 100
+
+    # --- Queries (consultas) ---
+    queries_match = re.search(r"(\d+)\s*consultas\s*\n\s*Consultas neste m", text)
+    if queries_match:
+        data["queries_current_month"] = int(queries_match.group(1))
+    queries13_match = re.search(r"(\d+)\s*consultas\s*\n?\s*Consultas nos", text)
+    if queries13_match:
+        data["queries_last_13_months"] = int(queries13_match.group(1))
+
+    # --- Branch count (filiais) ---
+    filiais_match = re.search(
+        r"Número de\s*\n?\s*Filiais\s*\n?\s*(?:funcionários\s*\n?)?(Sem dados|\d+)",
+        text,
+    )
+    if filiais_match:
+        val = filiais_match.group(1).strip()
+        if val != "Sem dados":
+            data["branch_count"] = int(val)
+        else:
+            data["branch_count"] = None
+
+    # --- Total shareholders from "X | Y" pattern (before anotações) ---
+    sh_match = re.search(r"(\d+)\s*\|\s*(\d+)\s*\n?\s*Sócios", text)
+    if sh_match:
+        data["total_shareholders"] = int(sh_match.group(1))
+        data["total_administrators"] = int(sh_match.group(2))
+
+    # --- Shareholder restrictions ---
+    # Look for "Anotações" column in sócio/administrador tables
+    # Count all "Sim" and "Não" values that appear after "Anotações" headers
+    anotacoes_matches = re.findall(r"Anotações\s*\n(.*?)(?=\nSócios|\nAdministradores|\nConsultas|$)", text, re.DOTALL)
+    if anotacoes_matches:
+        all_anotacoes = " ".join(anotacoes_matches)
+        # Each "Não" or "Sim" is one entry per person
+        nao_count = len(re.findall(r"\bNão\b", all_anotacoes))
+        sim_count = len(re.findall(r"\bSim\b", all_anotacoes))
+        data["shareholders_with_restrictions"] = sim_count > 0
+        # Use total from "X | Y" pattern if available (avoids double-counting)
+        if "total_shareholders" in data and "total_administrators" in data:
+            data["shareholders_count"] = max(
+                data["total_shareholders"], data["total_administrators"]
+            )
+        else:
+            data["shareholders_count"] = nao_count + sim_count
+    else:
+        data["shareholders_with_restrictions"] = False
+
+    return data
+
+
+def _find_value_below(words, header_text, header_x0=None, max_dy=25):
+    """Find the value word positioned below a header word by x0 proximity."""
+    candidates = []
+    for i, w in enumerate(words):
+        if w["text"].strip() == header_text:
+            h_top = w["top"]
+            h_x0 = w["x0"]
+            for vw in words:
+                dy = vw["top"] - h_top
+                if 5 < dy < max_dy:
+                    dx = abs(vw["x0"] - h_x0)
+                    if dx < 30:
+                        candidates.append((dx, vw))
+    if candidates:
+        candidates.sort(key=lambda c: c[0])
+        return candidates[0][1]["text"]
+    return None
+
+
+def _parse_annotations_value(val_text):
+    """Parse an annotation value: return amount or None if 'Sem registros'."""
+    if val_text is None:
+        return None
+    val_text = val_text.strip()
+    if "Sem registros" in val_text or "Sem registro" in val_text:
+        return None
+    amt = parse_money(f"R$ {val_text}" if "R$" not in val_text else val_text)
+    return amt
+
+
+def _parse_annotations(pages_data):
+    """Extract PEFIN, REFIN, overdue debts, bankruptcy, judicial actions,
+    protests, and bounced checks from word-positioned page data."""
+    data = {}
+
+    if not pages_data:
+        return data
+
+    last_page_words = pages_data[-1]
+
+    # --- Annotations grid (PEFIN, REFIN, etc.) ---
+    header_map = {
+        "PEFIN": "pefin",
+        "REFIN": "refin",
+        "Dívidas": "overdue_debts",
+        "Protestos": "protests",
+        "Cheque": "bounced_checks",
+    }
+
+    for header_text, key in header_map.items():
+        val = _find_value_below(last_page_words, header_text)
+        if key == "bounced_checks":
+            data[f"{key}_has_records"] = val is not None and "Sem registros" not in (val or "")
+        else:
+            parsed = _parse_annotations_value(val)
+            data[f"{key}_has_records"] = parsed is not None
+            if parsed is not None:
+                data[f"{key}_amount"] = parsed
+
+    # --- Bankruptcy / Recuperação judicial ---
+    # The header "Falência / Rec." spans two lines with "judicial" below it
+    falencia_val = _find_value_below(last_page_words, "judicial", max_dy=20)
+    if falencia_val:
+        data["bankruptcy_recovery"] = "Sem registros" not in falencia_val
+    else:
+        # Fallback: check if "Sem registros" follows "Falência" in text
+        data["bankruptcy_recovery"] = False
+
+    # --- Judicial actions ---
+    aj_val = _find_value_below(last_page_words, "Ações Judiciais")
+    if aj_val:
+        data["judicial_actions"] = "Sem registros" not in aj_val
+    else:
+        data["judicial_actions"] = False
+
+    # --- Total negative annotations (total_debt) ---
+    # Already extracted by parse_serasa_text, but ensure it exists
+    # (total_debt is parsed from "Total de dívidas: R$ X")
+
     return data
 
 
@@ -210,5 +352,5 @@ if __name__ == "__main__":
     pdf_path = sys.argv[1]
     data = extract_pdf_data(pdf_path)
     print("=== Extracted PDF data ===")
-    for k, v in data.items():
+    for k, v in sorted(data.items()):
         print(f"  {k}: {v}")
