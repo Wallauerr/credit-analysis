@@ -21,7 +21,7 @@ from paths import reports_dir
 OUTPUT_DIR = reports_dir()
 
 
-def process_analysis(pdf_path, inputs, report_path=None):
+def process_analysis(pdf_path, inputs, report_path=None, pdf_data=None):
     """
     Run the full analysis flow.
 
@@ -36,6 +36,8 @@ def process_analysis(pdf_path, inputs, report_path=None):
         - analyst (str)
         - notes (str)
     report_path: str, optional path for the generated PDF
+    pdf_data: dict, optional pre-extracted data. When provided, the PDF is not
+        re-extracted (preserves any manual edits made in the GUI modal).
 
     Returns a dict with 'pdf_data', 'calcs', 'report_path', 'history_path',
     'auto_scores_details'.
@@ -44,8 +46,9 @@ def process_analysis(pdf_path, inputs, report_path=None):
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
 
-    # 1. Extract PDF data
-    pdf_data = extract_pdf_data(pdf_path)
+    # 1. Extract PDF data (or reuse pre-extracted/manually edited data)
+    if pdf_data is None:
+        pdf_data = extract_pdf_data(pdf_path)
 
     # 2. Determine scores (auto or manual)
     auto_scores_enabled = inputs.get("auto_scores", False)
