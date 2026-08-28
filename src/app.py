@@ -73,6 +73,70 @@ class CurrencyEntry(ttk.Entry):
             return None
 
 
+class ScrollableFrame(ttk.Frame):
+    """A frame whose content scrolls vertically, so it stays usable in small
+    windows. Child widgets must be added to the `.inner` frame."""
+
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
+        self.vscroll = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vscroll.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        self.inner = ttk.Frame(self.canvas)
+        self._window_id = self.canvas.create_window(
+            (0, 0), window=self.inner, anchor="nw"
+        )
+
+        self._can_scroll = False
+
+        self.inner.bind("<Configure>", self._on_inner_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        # Rolagem por mouse wheel (diferentes plataformas)
+        self.bind("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
+        self.inner.bind("<MouseWheel>", self._on_mousewheel)
+        self.vscroll.bind("<MouseWheel>", self._on_mousewheel)
+
+    def _update_scrollability(self):
+        """Mostra a scrollbar (e habilita o scroll) apenas quando o conteúdo
+        excede a altura visível do canvas."""
+        content_h = self.canvas.bbox("all")
+        content_h = content_h[3] if content_h else 0
+        vis_h = self.canvas.winfo_height()
+
+        overflow = content_h > vis_h + 1
+        self._can_scroll = overflow
+
+        if overflow:
+            self.vscroll.pack(side="right", fill="y")
+        else:
+            self.vscroll.pack_forget()
+            self.canvas.yview_moveto(0.0)
+
+    def _on_inner_configure(self, _event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self._update_scrollability()
+
+    def _on_canvas_configure(self, event):
+        self.canvas.itemconfigure(self._window_id, width=event.width)
+        self._update_scrollability()
+
+    def _on_mousewheel(self, event):
+        if not self._can_scroll:
+            return
+        # Windows/macOS: delta é ±120; Linux: pode ser ±1 (units) ou evento diferente
+        if event.num == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(1, "units")
+        else:
+            self.canvas.yview_scroll(-int(event.delta / 120), "units")
+
+
 class CreditAnalysisApp:
     def __init__(self, root):
         self.root = root
@@ -113,30 +177,41 @@ class CreditAnalysisApp:
     def _build_analysis_tab(self):
         tab = self.tab_analysis
 
-        self._build_header(tab)
-        self._build_pdf_section(tab)
-        self._build_extracted_section(tab)
-        self._build_input_section(tab)
-        self._build_result_section(tab)
-        self._build_footer(tab)
+        scroller = ScrollableFrame(tab)
+        scroller.pack(fill="both", expand=True, padx=4)
+        body = scroller.inner
+
+        self._build_header(body)
+        self._build_pdf_section(body)
+        self._build_extracted_section(body)
+        self._build_input_section(body)
+        self._build_result_section(body)
+        self._build_footer(body)
 
     def _build_history_tab(self):
         tab = self.tab_history
 
-        top = ttk.Frame(tab, padding=(12, 10))
+        scroller = ScrollableFrame(tab)
+        scroller.pack(fill="both", expand=True, padx=4)
+        body = scroller.inner
+
+        top = ttk.Frame(body, padding=(12, 10))
         top.pack(fill="x")
         ttk.Label(top, text="Histórico de análises",
                   font=("Segoe UI", 14, "bold")).pack(side="left")
         ttk.Button(top, text="Atualizar", command=self._refresh_history).pack(side="right")
 
-        info = ttk.Label(tab, text="A lista mostra todas as análises salvas. Selecione uma e clique "
-                                   "em 'Abrir PDF' para visualizar o relatório gerado.",
+        info = ttk.Label(body, text="A lista mostra todas as análises salvas. Selecione uma e clique "
+                                    "em 'Abrir PDF' para visualizar o relatório gerado.",
                          foreground="gray", wraplength=750, justify="left")
         info.pack(anchor="w", padx=12, pady=(0, 6))
 
         columns = ("date", "name", "cnpj", "score", "class", "recommendation", "analyst")
+        body_list = ttk.Frame(body)
+        body_list.pack(fill="both", expand=True, padx=(12, 0), pady=6)
         self.history_tree = ttk.Treeview(
-            tab, columns=columns, show="headings", selectmode="browse"
+            body_list, columns=columns, show="headings", selectmode="browse",
+            height=12,
         )
         self.history_tree.heading("date", text="Data")
         self.history_tree.heading("name", text="Razão social")
@@ -154,12 +229,12 @@ class CreditAnalysisApp:
         self.history_tree.column("recommendation", width=200)
         self.history_tree.column("analyst", width=90)
 
-        vsb = ttk.Scrollbar(tab, orient="vertical", command=self.history_tree.yview)
+        vsb = ttk.Scrollbar(body_list, orient="vertical", command=self.history_tree.yview)
         self.history_tree.configure(yscrollcommand=vsb.set)
-        self.history_tree.pack(side="left", fill="both", expand=True, padx=(12, 0), pady=6)
-        vsb.pack(side="left", fill="y", pady=6)
+        self.history_tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="left", fill="y")
 
-        bottom = ttk.Frame(tab, padding=12)
+        bottom = ttk.Frame(body, padding=12)
         bottom.pack(fill="x")
         ttk.Button(bottom, text="Abrir PDF selecionado",
                    command=self._open_selected_report).pack(side="left")
@@ -168,8 +243,10 @@ class CreditAnalysisApp:
 
     def _build_config_tab(self):
         tab = self.tab_config
-        padding = ttk.Frame(tab, padding=16)
-        padding.pack(fill="both", expand=True)
+        scroller = ScrollableFrame(tab)
+        scroller.pack(fill="both", expand=True, padx=4)
+        padding = ttk.Frame(scroller.inner, padding=16)
+        padding.pack(fill="x")
 
         ttk.Label(padding, text="Configuração de parâmetros de cálculo",
                   font=("Segoe UI", 14, "bold")).pack(anchor="w")
@@ -535,8 +612,6 @@ class CreditAnalysisApp:
         ]
         self.result_var.set("\n".join(lines))
         self.recommendation_var.set(">>> " + calcs["recommendation"])
-        self.file_var.set(f"Relatório PDF: {result['report_path']}\n"
-                          f"Histórico: {result['history_path']}")
 
         self._refresh_history()
 
