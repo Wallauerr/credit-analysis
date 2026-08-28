@@ -486,6 +486,9 @@ class CreditAnalysisApp:
         )
         self.adv_hint.pack(anchor="w", pady=(2, 0))
 
+        # Auto-scores toggle (default on)
+        self.auto_scores_enabled = tk.BooleanVar(value=True)
+
         self.auto_toggle = ttk.Checkbutton(
             adv_header,
             text="Calcular notas automaticamente a partir do PDF",
@@ -501,7 +504,6 @@ class CreditAnalysisApp:
             "operational": tk.StringVar(value="3"),
             "legal": tk.StringVar(value="3"),
         }
-        self.auto_scores_enabled = tk.BooleanVar(value=True)
 
         analyze_btn = ttk.Button(
             frame, text="Executar análise", command=self._analyze, width=40
