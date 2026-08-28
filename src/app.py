@@ -479,12 +479,23 @@ class CreditAnalysisApp:
         self.adv_hint = ttk.Label(
             adv_header,
             text="As notas permitem ajustar a avaliação (1 a 5). "
-            "Por padrão assumem valor 3 e podem ficar como estão.",
+            "Por padrão são calculadas automaticamente a partir do PDF do Serasa.",
             foreground="gray",
             wraplength=700,
             justify="left",
         )
         self.adv_hint.pack(anchor="w", pady=(2, 0))
+
+        # Auto-scores toggle (default on)
+        self.auto_scores_enabled = tk.BooleanVar(value=True)
+
+        self.auto_toggle = ttk.Checkbutton(
+            adv_header,
+            text="Calcular notas automaticamente a partir do PDF",
+            variable=self.auto_scores_enabled,
+            command=self._toggle_auto_scores,
+        )
+        self.auto_toggle.pack(anchor="w", pady=(4, 0))
 
         # Score vars (default 3)
         self.score_vars = {
@@ -512,6 +523,39 @@ class CreditAnalysisApp:
                 child.destroy()
             self.adv_frame.pack_forget()
 
+    def _toggle_auto_scores(self):
+        """Habilita/desabilita o cálculo automático das notas."""
+        enabled = self.auto_scores_enabled.get()
+        # Recalcula as notas a partir do PDF ao reabilitar
+        if enabled and self.pdf_data is not None:
+            self._apply_auto_scores()
+            self._refresh_notes_reasons()
+        self._update_auto_status()
+
+    def _refresh_notes_reasons(self):
+        """Recria a área de notas para atualizar as justificativas."""
+        if self.adv_open:
+            for child in self.adv_frame.winfo_children():
+                child.destroy()
+            self._build_advanced_notes()
+
+    def _apply_auto_scores(self):
+        """Preenche as 4 notas com os valores calculados automaticamente."""
+        if self.pdf_data is None:
+            return
+        from auto_scores import calculate_auto_scores
+
+        requested_limit = self.limit_entry.get_value() or 0
+        auto = calculate_auto_scores(self.pdf_data, requested_limit)
+        mapping = {
+            "financial": auto["financial"][0],
+            "payment": auto["payment_history"][0],
+            "operational": auto["operational"][0],
+            "legal": auto["legal"][0],
+        }
+        for key, value in mapping.items():
+            self.score_vars[key].set(str(int(value)))
+
     def _build_advanced_notes(self):
         """Preenche a área das notas 1-5 (gerada sob demanda)."""
         grid = ttk.Frame(self.adv_frame)
@@ -522,14 +566,75 @@ class CreditAnalysisApp:
             ("Perfil operacional", "operational"),
             ("Risco jurídico", "legal"),
         ]
-        for i, (label, key) in enumerate(score_rows):
+
+        # Cabeçalho de status
+        status_label = ttk.Label(
+            grid,
+            text="",
+            foreground="green",
+            wraplength=680,
+            justify="left",
+        )
+        status_label.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        self.auto_status_label = status_label
+
+        reasons = self._get_auto_reasons()
+
+        for i, (label, key) in enumerate(score_rows, start=1):
             ttk.Label(grid, text=f"{label} (1-5):").grid(
                 row=i, column=0, sticky="w", padx=(0, 8), pady=3
             )
             ttk.Entry(grid, textvariable=self.score_vars[key], width=24).grid(
                 row=i, column=1, sticky="w", pady=3
             )
+            self.score_vars[key].trace_add(
+                "write", lambda *a, k=key: self._on_score_change(k)
+            )
+            if reasons and key in reasons:
+                ttk.Label(
+                    grid,
+                    text=f"({reasons[key]})",
+                    foreground="gray",
+                    wraplength=420,
+                    justify="left",
+                ).grid(row=i, column=2, sticky="w", padx=(6, 0), pady=3)
+
+        self._update_auto_status()
         self.adv_frame.pack(fill="x", padx=(4, 0))
+
+    def _get_auto_reasons(self):
+        """Calcula as justificativas das notas automáticas (retorna dict key->reason)."""
+        if self.pdf_data is None or not self.auto_scores_enabled.get():
+            return {}
+        from auto_scores import calculate_auto_scores
+
+        requested_limit = self.limit_entry.get_value() or 0
+        auto = calculate_auto_scores(self.pdf_data, requested_limit)
+        return {
+            "financial": auto["financial"][1],
+            "payment": auto["payment_history"][1],
+            "operational": auto["operational"][1],
+            "legal": auto["legal"][1],
+        }
+
+    def _update_auto_status(self):
+        """Atualiza o status de auto/manual na área de notas."""
+        if hasattr(self, "auto_status_label"):
+            if self.auto_scores_enabled.get():
+                self.auto_status_label.config(
+                    text="✓ Notas calculadas automaticamente a partir do PDF. "
+                    "Desmarque a opção acima para editar manualmente.",
+                    foreground="green",
+                )
+            else:
+                self.auto_status_label.config(
+                    text="✗ Edição manual habilitada. As notas serão usadas como estão.",
+                    foreground="orange",
+                )
+
+    def _on_score_change(self, key):
+        """Reage à edição manual de uma nota (desativa o auto para essa nota)."""
+        pass
 
     def _build_result_section(self, parent):
         frame = ttk.LabelFrame(parent, text="Resultado", padding=12)
@@ -607,6 +712,9 @@ class CreditAnalysisApp:
             )
             return
         self._show_extracted(self.pdf_data)
+        # Preenche as notas automáticas se a opção estiver habilitada
+        if self.auto_scores_enabled.get():
+            self._apply_auto_scores()
         self.pdf_status.config(
             text="Dados extraídos. Confira os valores e preencha os dados manuais.",
             foreground="green",
@@ -662,11 +770,21 @@ class CreditAnalysisApp:
 
         inputs = {
             "requested_limit": requested_limit,
+            "auto_scores": self.auto_scores_enabled.get(),
             "scores": tuple(scores),
             "references": references,
             "analyst": self.analyst_var.get().strip(),
             "notes": self.notes_text.get("1.0", "end").strip(),
         }
+
+        # Se auto_scores estiver habilitado, envia as notas atuais como overrides manuais
+        if self.auto_scores_enabled.get():
+            inputs["manual_overrides"] = {
+                "financial": scores[0],
+                "payment_history": scores[1],
+                "operational": scores[2],
+                "legal": scores[3],
+            }
         return inputs, None
 
     def _analyze(self):
@@ -696,6 +814,18 @@ class CreditAnalysisApp:
             logger.error(f"Falha na análise: {e}", exc_info=True)
             self.root.after(0, self._on_error, str(e))
 
+    @staticmethod
+    def _fmt_brl(value):
+        if value is None:
+            return "-"
+        return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    @staticmethod
+    def _fmt_num(value, decimals=3):
+        if value is None:
+            return "-"
+        return f"{value:.{decimals}f}".replace(".", ",")
+
     def _on_success(self, result):
         self.progress.stop()
         self.analysing = False
@@ -706,9 +836,9 @@ class CreditAnalysisApp:
             f"Classificação interna: {calcs['internal_class']}",
             f"Classificação Serasa:  {calcs['serasa_class']}",
             f"Classificação final:   {calcs['final_class']}",
-            f"Limite sugerido:       R$ {calcs['suggested_limit']:,.2f}",
+            f"Limite sugerido:       {self._fmt_brl(calcs['suggested_limit'])}",
             f"Cobertura:             {calcs['coverage']}",
-            f"Índice de exposição:   {calcs['exposure_index']:.3f}",
+            f"Índice de exposição:   {self._fmt_num(calcs['exposure_index'])}",
             f"Alerta de capital:     {calcs['capital_alert']}",
         ]
         self.result_var.set("\n".join(lines))
