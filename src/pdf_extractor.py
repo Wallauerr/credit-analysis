@@ -113,6 +113,11 @@ def parse_serasa_text(text):
             r"\n(\d{3})\s*(?:Risco mínimo|Risco baixo|Risco médio)\s*\n?0\s*[0-9 ]*1000",
             text,
         )
+    if not score_match:
+        score_match = re.search(
+            r"(\d{3})\s*\n?\s*Ris(?:co|k)\s*(?:baixo|mínimo|médio|moderado|alto)\s*\n?\s*A\s*pontua[çc][ãa]o\s*enquadra-se",
+            text,
+        )
     if score_match:
         data["serasa_score"] = int(score_match.group(1))
 
