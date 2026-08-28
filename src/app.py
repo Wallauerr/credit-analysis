@@ -873,6 +873,12 @@ class CreditAnalysisApp:
         if requested_limit <= 0:
             return None, "O limite solicitado deve ser maior que zero."
 
+        # Recalcula as notas automáticas com o limite já preenchido, para que
+        # elas não fiquem com valores residuais calculados na extração do PDF
+        # (quando o limite ainda estava vazio).
+        if self.auto_scores_enabled.get() and self.pdf_data is not None:
+            self._apply_auto_scores()
+
         scores = []
         for key in ("financial", "payment", "operational", "legal"):
             raw = self.score_vars[key].get().strip()
