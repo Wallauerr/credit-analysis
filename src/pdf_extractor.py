@@ -349,9 +349,11 @@ def _parse_queries(pages_data):
                         dist_y = abs(vw["top"] - ly)
                         dist_x = abs(vw["x0"] - lx)
                         if dist_y < dy_tol and dist_x < dx_tol + 40:
-                            n = int(re.match(r"(\d+)", vw["text"]).group(1))
-                            if best is None or dist_y < best[0]:
-                                best = (dist_y, n)
+                            m = re.match(r"(\d+)", vw["text"])
+                            if m is not None:
+                                n = int(m.group(1))
+                                if best is None or dist_y < best[0]:
+                                    best = (dist_y, n)
         return best[1] if best else None
 
     for words in pages_data:
