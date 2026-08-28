@@ -814,6 +814,18 @@ class CreditAnalysisApp:
             logger.error(f"Falha na análise: {e}", exc_info=True)
             self.root.after(0, self._on_error, str(e))
 
+    @staticmethod
+    def _fmt_brl(value):
+        if value is None:
+            return "-"
+        return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    @staticmethod
+    def _fmt_num(value, decimals=3):
+        if value is None:
+            return "-"
+        return f"{value:.{decimals}f}".replace(".", ",")
+
     def _on_success(self, result):
         self.progress.stop()
         self.analysing = False
@@ -824,9 +836,9 @@ class CreditAnalysisApp:
             f"Classificação interna: {calcs['internal_class']}",
             f"Classificação Serasa:  {calcs['serasa_class']}",
             f"Classificação final:   {calcs['final_class']}",
-            f"Limite sugerido:       R$ {calcs['suggested_limit']:,.2f}",
+            f"Limite sugerido:       {self._fmt_brl(calcs['suggested_limit'])}",
             f"Cobertura:             {calcs['coverage']}",
-            f"Índice de exposição:   {calcs['exposure_index']:.3f}",
+            f"Índice de exposição:   {self._fmt_num(calcs['exposure_index'])}",
             f"Alerta de capital:     {calcs['capital_alert']}",
         ]
         self.result_var.set("\n".join(lines))

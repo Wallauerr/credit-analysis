@@ -46,6 +46,13 @@ def _fmt_brl(value):
     return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def _fmt_num(value, decimals=3):
+    """Format a number safely, returning '-' for None (missing/unparsed data)."""
+    if value is None:
+        return "-"
+    return f"{value:.{decimals}f}".replace(".", ",")
+
+
 def _fmt_cnpj_br(cnpj):
     """Format CNPJ with Brazilian punctuation (16/16 already includes)."""
     return cnpj or "-"
@@ -182,7 +189,7 @@ def _build_pdf(pdf_data, inputs, calcs, output_path):
         ("Classificação final", str(calcs.get("final_class", "-"))),
         ("Limite sugerido", _fmt_brl(calcs.get("suggested_limit"))),
         ("Cobertura do pedido", str(calcs.get("coverage", "-"))),
-        ("Índice de exposição", f"{calcs.get('exposure_index', 0):.3f}"),
+        ("Índice de exposição", _fmt_num(calcs.get("exposure_index"))),
         ("Alerta de capital", str(calcs.get("capital_alert", "-"))),
     ]
     metric_data = [
