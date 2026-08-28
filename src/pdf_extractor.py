@@ -141,7 +141,7 @@ def parse_serasa_text(text):
         debt_match = re.search(r"Total de d[eê]vidas:\s*R\$\s*([\d\.,]+)", text)
         if debt_match:
             data["total_debt"] = parse_money(f"R$ {debt_match.group(1)}")
-            data["has_restrictions"] = data["total_debt"] > 0
+            data["has_restrictions"] = (data["total_debt"] or 0) > 0
 
     # --- Serasa recommendation ---
     rec_match = re.search(
