@@ -70,6 +70,7 @@ def extract_pdf_data(pdf_path):
 
     data = parse_serasa_text(all_text)
     data.update(_parse_annotations(pages_data))
+    data.update(_parse_queries(pages_data))
     return data
 
 
@@ -91,23 +92,32 @@ def parse_serasa_text(text):
         data["legal_name"] = re.sub(r"\s*\|.*$", "", data["legal_name"]).strip()
 
     # --- Serasa Score ---
+    # Padrão do formato 2025+: "340 de 1000 Risco médio"
     score_match = re.search(
-        r"Serasa Score Empresas\s*\n.*?(\d{3})\s*\n?\s*(?:Risco mínimo|Baixo risco|Risco moderado|Alto risco)",
+        r"(\d{1,3})\s*de\s*1000\s*\n?\s*Risco\s*(mínimo|baixo|moderado|médio|alto)",
         text,
     )
     if not score_match:
+        # Padrão do formato 2026+: "Serasa Score Empresas\n...\n835 Risco mínimo"
         score_match = re.search(
-            r"probabilidade da empresa pagar suas contas em dia nos próximos 6 meses\s*\n\s*(\d{3})",
+            r"Serasa Score Empresas\s*\n.*?(\d{3})\s*\n?\s*(?:Risco mínimo|Baixo risco|Risco moderado|Alto risco)",
             text,
         )
     if not score_match:
         score_match = re.search(
-            r"\n(\d{3})\s*(?:Risco mínimo|Risco baixo)\s*\n0\s+500\s+1000", text
+            r"probabilidade da empresa pagar suas contas em dia nos próximos (?:6|12) meses\s*\n\s*(\d{3})",
+            text,
+        )
+    if not score_match:
+        score_match = re.search(
+            r"\n(\d{3})\s*(?:Risco mínimo|Risco baixo|Risco médio)\s*\n?0\s*[0-9 ]*1000",
+            text,
         )
     if score_match:
         data["serasa_score"] = int(score_match.group(1))
 
     # --- Share capital ---
+    # Padrão 2026: "Capital social R$ 102.000,00" ou "Capital social\nR$"
     capital_match = re.search(r"Capital social[\s\S]{0,120}?R\$\s*([\d\.,]{2,})", text)
     if capital_match:
         data["share_capital"] = parse_money(f"R$ {capital_match.group(1)}")
@@ -115,6 +125,13 @@ def parse_serasa_text(text):
         capital_match2 = re.search(r"Capital social\s*\n?\s*R\$\s*([\d\.,]+)", text)
         if capital_match2:
             data["share_capital"] = parse_money(f"R$ {capital_match2.group(1)}")
+    # Padrão 2025: valor antes do rótulo, ex.: "R$114.118.632,00 ... Capital social"
+    if "share_capital" not in data:
+        capital_match3 = re.search(
+            r"R\$\s*([\d\.,]{4,})\s*[\s\S]{0,60}?Capital social", text
+        )
+        if capital_match3:
+            data["share_capital"] = parse_money(f"R$ {capital_match3.group(1)}")
 
     # --- Estimated monthly revenue ---
     # Pattern: "R$ 5,76 milhões ao ano" (annual revenue)
@@ -141,14 +158,22 @@ def parse_serasa_text(text):
     if status_match:
         data["registration_status"] = status_match.group(1)
 
-    # --- Restrictions/protests ---
-    if "Sem registros" in text:
-        data["has_restrictions"] = False
-    elif "Total de dívidas" in text:
+    # --- Restrictions / total debt ---
+    # Formato 2026: "Total de dívidas: R$ X" ou "Sem registros"
+    if "Total de dívidas" in text:
         debt_match = re.search(r"Total de d[eê]vidas:\s*R\$\s*([\d\.,]+)", text)
         if debt_match:
             data["total_debt"] = parse_money(f"R$ {debt_match.group(1)}")
             data["has_restrictions"] = (data["total_debt"] or 0) > 0
+    if "has_restrictions" not in data:
+        # Formato 2025: "Total em anotações negativas N ocorrência(s)"
+        oc_match = re.search(r"Total em anotações negativas\s*\n?\s*(\d+)\s*ocorr", text)
+        if oc_match:
+            n = int(oc_match.group(1))
+            data["has_restrictions"] = n > 0
+    if "has_restrictions" not in data:
+        if "Sem registros" in text or "Sem ocorrências" in text:
+            data["has_restrictions"] = False
 
     # --- Serasa recommendation ---
     rec_match = re.search(
@@ -165,19 +190,26 @@ def parse_serasa_text(text):
         data["serasa_suggested_limit"] = parse_money(f"R$ {limit_match.group(1)}")
 
     # --- Market time (years) ---
-    founded_match = re.search(r"Fund[açã]ao em\s*\n?\s*(\d{2}/\d{2}/\d{4})", text)
-    if not founded_match:
-        founded_match = re.search(r"Cadastral\s*(\d{2}/\d{2}/\d{4})", text)
-    if founded_match:
-        try:
-            founded = datetime.strptime(founded_match.group(1), "%d/%m/%Y")
-            today = datetime.now()
-            years = today.year - founded.year
-            if (today.month, today.day) < (founded.month, founded.day):
-                years -= 1
-            data["market_years"] = max(years, 0)
-        except ValueError:
-            pass
+    # "N anos" literal (formato 2025+: "ATIVA 28 anos CACAPAVA/SP ...")
+    years_literal = re.search(r"(\d{1,2})\s*anos\s*\n?[A-ZÁÉÍÓÚÇÀÂÃÔ]", text)
+    if years_literal:
+        data["market_years"] = int(years_literal.group(1))
+    if "market_years" not in data:
+        founded_match = re.search(r"Funda[çc][ãa]o em\s*\n?\s*(\d{2}/\d{2}/\d{4})", text)
+        if not founded_match:
+            founded_match = re.search(r"Funda[çc][ãa]o em\s*(\d{2}/\d{2}/\d{4})\s*\n?\s*Munic[íi]pio", text)
+        if not founded_match:
+            founded_match = re.search(r"Cadastral\s*(\d{2}/\d{2}/\d{4})", text)
+        if founded_match:
+            try:
+                founded = datetime.strptime(founded_match.group(1), "%d/%m/%Y")
+                today = datetime.now()
+                years = today.year - founded.year
+                if (today.month, today.day) < (founded.month, founded.day):
+                    years -= 1
+                data["market_years"] = max(years, 0)
+            except ValueError:
+                pass
     if "market_years" not in data:
         years_match = re.search(r"(\d{1,2})\s*anos\s*$", text, re.MULTILINE)
         if years_match:
@@ -205,19 +237,20 @@ def parse_serasa_text(text):
         data["segment"] = seg_match.group(1).strip()
 
     # --- Default probability ---
-    prob_match = re.search(r"([\d,]+)%\s*(?:Mínimo|Baixo|Moderado|Alto)", text)
+    prob_match = re.search(r"([\d,]+)%\s*\n?(?:Mínimo|Baixo|Moderado|Médio|Alto)", text)
     if prob_match:
         data["default_probability"] = parse_money(f"R$ {prob_match.group(1)}")
         if data["default_probability"] is not None:
             data["default_probability"] = data["default_probability"] / 100
 
     # --- Queries (consultas) ---
-    queries_match = re.search(r"(\d+)\s*consultas\s*\n\s*Consultas neste m", text)
-    if queries_match:
-        data["queries_current_month"] = int(queries_match.group(1))
-    queries13_match = re.search(r"(\d+)\s*consultas\s*\n?\s*Consultas nos", text)
-    if queries13_match:
-        data["queries_last_13_months"] = int(queries13_match.group(1))
+    # O valor do mês é sempre menor/igual ao de 13 meses; usamos quando presentes.
+    queries_all = re.findall(r"(\d+)\s*consultas?", text)
+    if queries_all:
+        vals = sorted(int(q) for q in queries_all)
+        # Ignora o "Histórico das últimas N consultas" (geralmente o menor rótulo falso)
+        if len(vals) >= 2:
+            data["queries_last_13_months"] = vals[-1]
 
     # --- Branch count (filiais) ---
     filiais_match = re.search(
@@ -240,7 +273,11 @@ def parse_serasa_text(text):
     # --- Shareholder restrictions ---
     # Look for "Anotações" column in sócio/administrador tables
     # Count all "Sim" and "Não" values that appear after "Anotações" headers
-    anotacoes_matches = re.findall(r"Anotações\s*\n(.*?)(?=\nSócios|\nAdministradores|\nConsultas|$)", text, re.DOTALL)
+    anotacoes_matches = re.findall(
+        r"Anotações\s*\n(.*?)(?=\nSócios|\nAdministradores|\nConsultas|$)",
+        text,
+        re.DOTALL,
+    )
     if anotacoes_matches:
         all_anotacoes = " ".join(anotacoes_matches)
         # Each "Não" or "Sim" is one entry per person
@@ -290,6 +327,44 @@ def _parse_annotations_value(val_text):
     return amt
 
 
+def _parse_queries(pages_data):
+    """Extract query counts (current month / last 13 months) geometrically.
+
+    Localizes the 'Consultas neste mês' and 'Consultas nos últimos 13 meses'
+    labels and reads the count positioned above/near each one.
+    """
+    result = {}
+
+    def count_near_label(words, label, dx_tol=30, dy_tol=16):
+        best = None
+        for w in words:
+            if label in w["text"] or w["text"].startswith(label):
+                lx = w["x0"]
+                ly = w["top"]
+                for vw in words:
+                    if vw is w:
+                        continue
+                    # valor do tipo 'NN consultas' (uma palavra)
+                    if re.fullmatch(r"\d+\s*consultas?", vw["text"]):
+                        dist_y = abs(vw["top"] - ly)
+                        dist_x = abs(vw["x0"] - lx)
+                        if dist_y < dy_tol and dist_x < dx_tol + 40:
+                            n = int(re.match(r"(\d+)", vw["text"]).group(1))
+                            if best is None or dist_y < best[0]:
+                                best = (dist_y, n)
+        return best[1] if best else None
+
+    for words in pages_data:
+        cur = count_near_label(words, "Consultas neste mês")
+        if cur is not None:
+            result["queries_current_month"] = cur
+        n13 = count_near_label(words, "Consultas nos últimos 13 meses")
+        if n13 is not None:
+            result["queries_last_13_months"] = n13
+
+    return result
+
+
 def _parse_annotations(pages_data):
     """Extract PEFIN, REFIN, overdue debts, bankruptcy, judicial actions,
     protests, and bounced checks from word-positioned page data."""
@@ -312,7 +387,9 @@ def _parse_annotations(pages_data):
     for header_text, key in header_map.items():
         val = _find_value_below(last_page_words, header_text)
         if key == "bounced_checks":
-            data[f"{key}_has_records"] = val is not None and "Sem registros" not in (val or "")
+            data[f"{key}_has_records"] = val is not None and "Sem registros" not in (
+                val or ""
+            )
         else:
             parsed = _parse_annotations_value(val)
             data[f"{key}_has_records"] = parsed is not None
