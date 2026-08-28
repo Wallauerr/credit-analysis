@@ -7,7 +7,7 @@ following the structured approach proposed for B2B credit analysis.
 from calculations import HIGH_RISK
 
 
-def auto_score_financial(pdf_data, requested_limit):
+def auto_score_financial(pdf_data, requested_limit) -> tuple[int, str]:
     """Capacidade financeira (1-5).
 
     Based on three indices:
@@ -61,7 +61,7 @@ def auto_score_financial(pdf_data, requested_limit):
     return score, reason
 
 
-def auto_score_payment(pdf_data):
+def auto_score_payment(pdf_data) -> tuple[int, str]:
     """Histórico de pagamento (1-5).
 
     Based on:
@@ -124,7 +124,7 @@ def auto_score_payment(pdf_data):
     return score, reason
 
 
-def auto_score_operational(pdf_data):
+def auto_score_operational(pdf_data) -> tuple[int, str]:
     """Perfil operacional (1-5).
 
     Based on:
@@ -166,7 +166,7 @@ def auto_score_operational(pdf_data):
     return score, reason
 
 
-def auto_score_legal(pdf_data):
+def auto_score_legal(pdf_data) -> tuple[int, str]:
     """Risco jurídico (1-5).
 
     Based on:
@@ -223,7 +223,7 @@ def auto_score_legal(pdf_data):
     return score, reason
 
 
-def calculate_auto_scores(pdf_data, requested_limit):
+def calculate_auto_scores(pdf_data, requested_limit) -> dict:
     """Calculate all 4 automatic scores from PDF data.
 
     Returns a dict with (score, reason) for each category.
