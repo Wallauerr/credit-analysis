@@ -612,8 +612,6 @@ class CreditAnalysisApp:
         ]
         self.result_var.set("\n".join(lines))
         self.recommendation_var.set(">>> " + calcs["recommendation"])
-        self.file_var.set(f"Relatório PDF: {result['report_path']}\n"
-                          f"Histórico: {result['history_path']}")
 
         self._refresh_history()
 
