@@ -1,0 +1,4 @@
+{
+  "include": ["src", "main.py"],
+  "python.analysis.extraPaths": ["./src"]
+}
