@@ -1101,7 +1101,7 @@ class CreditAnalysisApp:
         calcs = result["calcs"]
 
         lines = [
-            f"Score interno:         {calcs['internal_score']}",
+            f"Score interno:         {calcs['internal_score']} de 100",
             f"Classificação interna: {calcs['internal_class']}",
             f"Classificação Serasa:  {calcs['serasa_class']}",
             f"Classificação final:   {calcs['final_class']}",
