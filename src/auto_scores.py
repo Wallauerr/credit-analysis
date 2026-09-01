@@ -4,7 +4,7 @@ Calculates the 4 analysis scores (1-5) from Serasa PDF data,
 following the structured approach proposed for B2B credit analysis.
 """
 
-from calculations import HIGH_RISK
+from calculations import HIGH_RISK, _get_params
 
 
 def auto_score_financial(pdf_data, requested_limit) -> tuple[int, str]:
@@ -65,7 +65,7 @@ def auto_score_payment(pdf_data) -> tuple[int, str]:
     """Histórico de pagamento (1-5).
 
     Based on:
-    - Serasa Score (primary)
+    - Serasa Score (primary, bounds from editable params)
     - PEFIN, REFIN, dívidas vencidas, cheques (penalties)
     - Probabilidade de inadimplência (context)
     """
@@ -77,14 +77,25 @@ def auto_score_payment(pdf_data) -> tuple[int, str]:
     bounced = pdf_data.get("bounced_checks_has_records", False)
     prob = pdf_data.get("default_probability")
 
-    # Base on serasa_score
-    if serasa_score >= 700:
+    params = _get_params()
+    low_min = params["serasa_low_min"]
+    moderate_min = params["serasa_moderate_min"]
+
+    # Base on serasa_score using editable classification bounds.
+    # Nota 5  -> score >= baixo risco
+    # Nota 4  -> score >= risco moderado
+    # Nota 3  -> score >= 50% do moderate bound
+    # Nota 2  -> score > 0
+    # Nota 1  -> score == 0
+    if moderate_min >= low_min:  # guard against inverted bounds
+        moderate_min = low_min
+    if serasa_score >= low_min:
         score = 5
-    elif serasa_score >= 500:
+    elif serasa_score >= moderate_min:
         score = 4
-    elif serasa_score >= 300:
+    elif serasa_score >= moderate_min // 2:
         score = 3
-    elif serasa_score >= 100:
+    elif serasa_score > 0:
         score = 2
     else:
         score = 1
@@ -183,6 +194,12 @@ def auto_score_legal(pdf_data) -> tuple[int, str]:
     protests = pdf_data.get("protests_has_records", False)
     sh_restrictions = pdf_data.get("shareholders_with_restrictions", False)
 
+    params = _get_params()
+    low_min = params["serasa_low_min"]
+    moderate_min = params["serasa_moderate_min"]
+    if moderate_min >= low_min:
+        moderate_min = low_min
+
     # Hard block: bankruptcy → 1
     if bankruptcy:
         return 1, "Falência/Recuperação judicial registrada"
@@ -191,16 +208,16 @@ def auto_score_legal(pdf_data) -> tuple[int, str]:
     if judicial:
         return 1, "Ações judiciais registradas"
 
-    # Base on restrictions + score
+    # Base on restrictions + score (bounds derived from editable params)
     if not has_restrictions:
-        if serasa_score >= 600:
+        if serasa_score >= low_min:
             score = 5
-        elif serasa_score >= 400:
+        elif serasa_score >= moderate_min:
             score = 4
         else:
             score = 3
     else:
-        if serasa_score >= 400:
+        if serasa_score >= low_min:
             score = 2
         else:
             score = 1
@@ -254,6 +271,8 @@ def check_hard_blocks(pdf_data, requested_limit):
     bankruptcy = pdf_data.get("bankruptcy_recovery", False)
     judicial = pdf_data.get("judicial_actions", False)
 
+    params = _get_params()
+
     # Hard block: bankruptcy/judicial → Negar
     if bankruptcy:
         return True, HIGH_RISK, "Falência ou recuperação judicial registrada"
@@ -264,14 +283,21 @@ def check_hard_blocks(pdf_data, requested_limit):
     if status and status != "ATIVA":
         return True, HIGH_RISK, f"Situação cadastral: {status}"
 
-    # Hard block: serasa score very low → Negar
-    if serasa_score < 200:
+    # Hard block: serasa score below the moderate-risk floor → Negar
+    # (uses the editable serasa_moderate_min bound instead of a magic 200)
+    if serasa_score < params["serasa_moderate_min"]:
         return True, HIGH_RISK, f"Score Serasa muito baixo ({serasa_score})"
 
-    # Alert: credit > 2x capital → exigir garantia
-    if capital and capital > 0 and requested_limit and requested_limit > 2 * capital:
+    # Alert: credit > exposure_critical x capital → exigir garantia/entrada
+    if (
+        capital
+        and capital > 0
+        and requested_limit
+        and requested_limit > params["exposure_critical"] * capital
+    ):
         return True, "Aprovar com limite/entrada", (
-            f"Crédito solicitado ({requested_limit:,.0f}) excede 2x o capital social ({capital:,.0f})"
+            f"Crédito solicitado ({requested_limit:,.0f}) excede "
+            f"{params['exposure_critical']:.0f}x o capital social ({capital:,.0f})"
         )
 
     # Alert: total debt > annual revenue → bloqueia
