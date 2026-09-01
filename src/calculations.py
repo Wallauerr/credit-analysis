@@ -23,7 +23,8 @@ DEFAULT_PARAMS = {
     "serasa_high_min": 0,
 }
 
-def _get_params():
+
+def get_params():
     """Load params fresh from config on every call (no stale cache)."""
     try:
         from config_handler import load_params
@@ -35,6 +36,7 @@ def _get_params():
     except Exception:
         return dict(DEFAULT_PARAMS)
 
+
 LOW_RISK = "Baixo risco"
 MODERATE_RISK = "Risco moderado"
 HIGH_RISK = "Alto risco"
@@ -42,7 +44,7 @@ HIGH_RISK = "Alto risco"
 
 def internal_score(scores, params=None):
     """Internal score (0-100) = weighted average of scores (1-5) * 100."""
-    p = params if params else _get_params()
+    p = params if params else get_params()
     fin, hist, op, legal = scores
     score = (
         (fin / 5) * p["weight_financial"]
@@ -55,7 +57,7 @@ def internal_score(scores, params=None):
 
 def classify_internal(score, params=None):
     """Internal classification by score range (0-100)."""
-    p = params if params else _get_params()
+    p = params if params else get_params()
     if score >= p["low_risk_min_internal"]:
         return LOW_RISK
     if score >= p["moderate_min_internal"]:
@@ -65,7 +67,7 @@ def classify_internal(score, params=None):
 
 def classify_serasa(score, params=None):
     """SERASA classification by range (0-1000)."""
-    p = params if params else _get_params()
+    p = params if params else get_params()
     if score >= p["serasa_low_min"]:
         return LOW_RISK
     if score >= p["serasa_moderate_min"]:
@@ -84,7 +86,7 @@ def classify_final(internal, serasa):
 
 def limit_pct_by_class(cls, params=None):
     """Revenue percentage applicable according to the final class."""
-    p = params if params else _get_params()
+    p = params if params else get_params()
     if cls == LOW_RISK:
         return p["limit_pct_low"]
     if cls == MODERATE_RISK:
@@ -156,7 +158,7 @@ def calculate(pdf_data, scores, requested_limit, params=None):
     if ei is None:
         result["capital_alert"] = None
     else:
-        p = params if params else _get_params()
+        p = params if params else get_params()
         if ei > p["exposure_critical"]:
             result["capital_alert"] = "Exposição muito alta"
         elif ei > p["exposure_alert"]:
