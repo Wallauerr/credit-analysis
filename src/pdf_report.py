@@ -24,6 +24,7 @@ from reportlab.platypus import (
 )
 
 from paths import assets_dir, reports_dir
+from auto_scores import get_note_explanations
 
 OUTPUT_DIR = reports_dir()
 ASSETS_DIR = assets_dir()
@@ -56,6 +57,57 @@ def _fmt_num(value, decimals=3):
 def _fmt_cnpj_br(cnpj):
     """Format CNPJ with Brazilian punctuation (16/16 already includes)."""
     return cnpj or "-"
+
+
+def _recommendation_explanation(calcs):
+    """Build a short, human-readable explanation for non-approval outcomes.
+
+    Returns an empty string for "Aprovar" (green) so no explanation is needed,
+    as requested. For "Aprovar com limite/entrada" and "Negar ou exigir
+    garantia" it composes a summary based on the classification and coverage.
+    """
+    rec = str(calcs.get("recommendation", ""))
+    if rec == "Aprovar":
+        return ""
+
+    final_cls = calcs.get("final_class", "")
+    coverage = calcs.get("coverage", "")
+    capital_alert = calcs.get("capital_alert", "")
+    scam = calcs.get("internal_score")
+
+    points = []
+    if final_cls == "Alto risco":
+        points.append("a classificação final da empresa é de ALTO risco")
+    elif final_cls == "Risco moderado":
+        points.append("a classificação final da empresa é de RISCO MODERADO")
+    else:
+        points.append(f"a classificação final ficou em {final_cls}")
+
+    if coverage == "Acima do limite sugerido":
+        points.append("o limite solicitado supera o limite sugerido para essa classificação")
+
+    if capital_alert == "Exposição muito alta":
+        points.append("a exposição ao capital social é considerada muito alta")
+    elif capital_alert == "Acima do capital social":
+        points.append("o valor solicitado excede o capital social da empresa")
+    elif capital_alert == "Dentro do capital social":
+        points.append("embora o pedido esteja dentro do capital social")
+
+    if calcs.get("block_reason"):
+        points.append(f"além disso: {calcs['block_reason']}")
+
+    base = " e ".join(points) if points else f"o score interno ficou em {scam}"
+
+    if rec == "Negar ou exigir garantia":
+        return (
+            f"Recomendação de NEGAR/EXIGIR GARANTIA porque {base}. "
+            "Recomenda-se não liberar crédito sem garantias reforçadas ou reavaliar o pedido."
+        )
+    # "Aprovar com limite/entrada"
+    return (
+        f"Recomendação de APROVAÇÃO COM LIMITE/ENTRADA porque {base}. "
+        "Sugere-se reduzir o valor liberado, exigir entrada ou revisar a classificação antes da liberação."
+    )
 
 
 def _cover_banner(doc):
@@ -292,6 +344,37 @@ def _build_pdf(pdf_data, inputs, calcs, output_path):
             )
         )
 
+    # ---------- Explicação detalhada das notas ----------
+    if is_auto:
+        explanations = get_note_explanations(pdf_data, inputs.get("requested_limit"))
+        if explanations:
+            elements.append(Spacer(1, 4 * mm))
+            elements.append(
+                Paragraph("Explicação detalhada das notas", _section_style())
+            )
+            expl_labels = [
+                ("financial", "Capacidade financeira"),
+                ("payment_history", "Histórico de pagamento"),
+                ("operational", "Perfil operacional"),
+                ("legal", "Risco jurídico"),
+            ]
+            for key, label in expl_labels:
+                text = explanations.get(key)
+                if not text:
+                    continue
+                body = Paragraph(
+                    f"<b>{label}:</b> {text}",
+                    ParagraphStyle(
+                        "Expl",
+                        parent=styles["Normal"],
+                        fontSize=9.5,
+                        textColor=DARK,
+                        spaceAfter=3 * mm,
+                        leading=13,
+                    ),
+                )
+                elements.append(body)
+
     # ---------- Hard blocks / travas ----------
     block_reason = calcs.get("block_reason")
     if block_reason:
@@ -358,6 +441,41 @@ def _build_pdf(pdf_data, inputs, calcs, output_path):
         )
     )
     elements.append(rec_box)
+
+    # ---------- Explicação resumida da recomendação (não-verde) ----------
+    rec_expl = _recommendation_explanation(calcs)
+    if rec_expl:
+        elements.append(Spacer(1, 4 * mm))
+        expl_box = Table(
+            [
+                [
+                    Paragraph(
+                        rec_expl,
+                        ParagraphStyle(
+                            "RecExpl",
+                            parent=styles["Normal"],
+                            fontSize=10,
+                            textColor=DARK,
+                            leading=14,
+                        ),
+                    )
+                ]
+            ],
+            colWidths=[178 * mm],
+        )
+        expl_box.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fdf3e3")),
+                    ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#b45309")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        elements.append(expl_box)
 
     # ---------- Footer info ----------
     elements.append(Spacer(1, 5 * mm))
