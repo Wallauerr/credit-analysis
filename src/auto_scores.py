@@ -276,11 +276,10 @@ def get_note_explanations(pdf_data, requested_limit) -> dict:
     queries_13m = pdf_data.get("queries_last_13_months") or 0
     has_restrictions = pdf_data.get("has_restrictions", False)
 
-    fmt_brl = lambda v: (
-        f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        if v is not None
-        else "não informado"
-    )
+    def fmt_brl(v):
+        if v is None:
+            return "não informado"
+        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
     explanations = {}
 
@@ -293,7 +292,9 @@ def get_note_explanations(pdf_data, requested_limit) -> dict:
             f"{ratio:.0%} do faturamento mensal estimado ({fmt_brl(monthly_rev)})."
         )
         if ratio < 0.20:
-            fin_parts.append("Proporção baixa, o que indica folga na capacidade de pagamento.")
+            fin_parts.append(
+                "Proporção baixa, o que indica folga na capacidade de pagamento."
+            )
         elif ratio < 0.40:
             fin_parts.append("Proporção moderada, adequada para o porte da empresa.")
         elif ratio < 0.60:
@@ -307,7 +308,9 @@ def get_note_explanations(pdf_data, requested_limit) -> dict:
             f"{cap_ratio:.1f}x do capital."
         )
         if cap_ratio > 2.0:
-            fin_parts.append("Esse valor supera 2x o capital social, o que pressiona a nota.")
+            fin_parts.append(
+                "Esse valor supera 2x o capital social, o que pressiona a nota."
+            )
     if annual_rev and total_debt and annual_rev > 0:
         debt_ratio = total_debt / annual_rev
         fin_parts.append(
@@ -329,9 +332,13 @@ def get_note_explanations(pdf_data, requested_limit) -> dict:
     else:
         pay_parts.append("Pontuação baixa: maior probabilidade de atrasos.")
     if has_restrictions:
-        pay_parts.append("Há registros de restrições/anotações negativas, que penalizam a nota.")
+        pay_parts.append(
+            "Há registros de restrições/anotações negativas, que penalizam a nota."
+        )
     else:
-        pay_parts.append("Não foram identificadas restrições/anotações negativas relevantes.")
+        pay_parts.append(
+            "Não foram identificadas restrições/anotações negativas relevantes."
+        )
     explanations["payment_history"] = " ".join(pay_parts)
 
     # --- Operational ---
@@ -341,15 +348,23 @@ def get_note_explanations(pdf_data, requested_limit) -> dict:
     if market_years:
         op_parts.append(f"Empresa ativa há cerca de {market_years} anos no mercado.")
         if market_years >= 10:
-            op_parts.append("Tempo considerável de operação, sinal de maturidade e estabilidade.")
+            op_parts.append(
+                "Tempo considerável de operação, sinal de maturidade e estabilidade."
+            )
         elif market_years >= 3:
             op_parts.append("Tempo de mercado razoável.")
         else:
-            op_parts.append("Empresa relativamente nova, o que aumenta o risco operacional.")
+            op_parts.append(
+                "Empresa relativamente nova, o que aumenta o risco operacional."
+            )
     if queries_13m:
-        op_parts.append(f"Foram registradas {queries_13m} consultas nos últimos 13 meses.")
+        op_parts.append(
+            f"Foram registradas {queries_13m} consultas nos últimos 13 meses."
+        )
         if queries_13m > 50:
-            op_parts.append("Volume alto de consultas, indicando busca intensa por crédito.")
+            op_parts.append(
+                "Volume alto de consultas, indicando busca intensa por crédito."
+            )
     explanations["operational"] = " ".join(op_parts) or (
         "Dados operacionais insuficientes para uma avaliação detalhada."
     )
@@ -363,18 +378,24 @@ def get_note_explanations(pdf_data, requested_limit) -> dict:
         legal_blocks.append("ações judiciais")
     if legal_blocks:
         leg_parts.append(
-            "Há registros de " + " e ".join(legal_blocks) + ", o que eleva fortemente o risco jurídico."
+            "Há registros de "
+            + " e ".join(legal_blocks)
+            + ", o que eleva fortemente o risco jurídico."
         )
     if pdf_data.get("protests_has_records"):
         leg_parts.append("Existem protestos registrados, que penalizam a avaliação.")
     if pdf_data.get("shareholders_with_restrictions"):
-        leg_parts.append("Sócios/administradores possuem anotações, aumentando o risco.")
+        leg_parts.append(
+            "Sócios/administradores possuem anotações, aumentando o risco."
+        )
     if not leg_parts:
         leg_parts.append(
             "Não foram identificados impedimentos jurídicos relevantes (falências, ações judiciais, "
             "protestos ou anotações em sócios)."
         )
-    leg_parts.append(f"O Score Serasa ({serasa_score}) auxilia na aferição do risco jurídico.")
+    leg_parts.append(
+        f"O Score Serasa ({serasa_score}) auxilia na aferição do risco jurídico."
+    )
     explanations["legal"] = " ".join(leg_parts)
 
     return explanations
