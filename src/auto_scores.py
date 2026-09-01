@@ -4,7 +4,7 @@ Calculates the 4 analysis scores (1-5) from Serasa PDF data,
 following the structured approach proposed for B2B credit analysis.
 """
 
-from calculations import HIGH_RISK, _get_params
+from calculations import HIGH_RISK, get_params
 
 
 def auto_score_financial(pdf_data, requested_limit) -> tuple[int, str]:
@@ -77,7 +77,7 @@ def auto_score_payment(pdf_data) -> tuple[int, str]:
     bounced = pdf_data.get("bounced_checks_has_records", False)
     prob = pdf_data.get("default_probability")
 
-    params = _get_params()
+    params = get_params()
     low_min = params["serasa_low_min"]
     moderate_min = params["serasa_moderate_min"]
 
@@ -194,7 +194,7 @@ def auto_score_legal(pdf_data) -> tuple[int, str]:
     protests = pdf_data.get("protests_has_records", False)
     sh_restrictions = pdf_data.get("shareholders_with_restrictions", False)
 
-    params = _get_params()
+    params = get_params()
     low_min = params["serasa_low_min"]
     moderate_min = params["serasa_moderate_min"]
     if moderate_min >= low_min:
@@ -271,7 +271,7 @@ def check_hard_blocks(pdf_data, requested_limit):
     bankruptcy = pdf_data.get("bankruptcy_recovery", False)
     judicial = pdf_data.get("judicial_actions", False)
 
-    params = _get_params()
+    params = get_params()
 
     # Hard block: bankruptcy/judicial → Negar
     if bankruptcy:
@@ -295,15 +295,23 @@ def check_hard_blocks(pdf_data, requested_limit):
         and requested_limit
         and requested_limit > params["exposure_critical"] * capital
     ):
-        return True, "Aprovar com limite/entrada", (
-            f"Crédito solicitado ({requested_limit:,.0f}) excede "
-            f"{params['exposure_critical']:.0f}x o capital social ({capital:,.0f})"
+        return (
+            True,
+            "Aprovar com limite/entrada",
+            (
+                f"Crédito solicitado ({requested_limit:,.0f}) excede "
+                f"{params['exposure_critical']:.0f}x o capital social ({capital:,.0f})"
+            ),
         )
 
     # Alert: total debt > annual revenue → bloqueia
     if annual_rev and annual_rev > 0 and total_debt and total_debt > annual_rev:
-        return True, HIGH_RISK, (
-            f"Endividamento total ({total_debt:,.0f}) excede faturamento anual ({annual_rev:,.0f})"
+        return (
+            True,
+            HIGH_RISK,
+            (
+                f"Endividamento total ({total_debt:,.0f}) excede faturamento anual ({annual_rev:,.0f})"
+            ),
         )
 
     return False, None, None
