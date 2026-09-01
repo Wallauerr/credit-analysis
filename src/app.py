@@ -21,6 +21,140 @@ SCORE_LABELS = {
     5: "Excelente",
 }
 
+# Descrições detalhadas de cada parâmetro, exibidas como dica (tooltip) na
+# aba de configuração para que o usuário entenda o que cada valor representa
+# antes de alterá-lo.
+PARAM_DESCRIPTIONS = {
+    "weight_financial": (
+        "Peso (0 a 1) da 'Capacidade financeira' na composição do score interno. "
+        "Quanto maior o peso, mais o resultado depende da capacidade financeira "
+        "da empresa (relação limite/faturamento, endividamento). Os pesos devem "
+        "somar 1.0."
+    ),
+    "weight_payment_history": (
+        "Peso (0 a 1) do 'Histórico de pagamento' no score interno. Reflete o peso "
+        "do Score Serasa e das restrições (PEFIN, REFIN, dívidas vencidas, cheques) "
+        "na avaliação. Somado aos demais pesos deve resultar em 1.0."
+    ),
+    "weight_operational": (
+        "Peso (0 a 1) do 'Perfil operacional' no score interno. Mede o peso do tempo "
+        "de mercado, situação cadastral e consultas no resultado final. Os pesos "
+        "devem somar 1.0."
+    ),
+    "weight_legal": (
+        "Peso (0 a 1) do 'Risco jurídico' no score interno. Reflete o impacto de "
+        "falências, ações judiciais, protestos e anotações em sócios. Somado aos "
+        "demais deve totalizar 1.0."
+    ),
+    "low_risk_min_internal": (
+        "Menor score interno (0 a 100) para que a empresa seja classificada como "
+        "'Baixo risco'. Score interno igual ou acima deste valor é considerado "
+        "baixo risco; abaixo cai para risco moderado ou alto."
+    ),
+    "moderate_min_internal": (
+        "Menor score interno (0 a 100) para classificação 'Risco moderado'. "
+        "Scores abaixo deste valor são considerados 'Alto risco'. Deve ser menor "
+        "que o 'Baixo risco a partir de'."
+    ),
+    "serasa_low_min": (
+        "Menor Score Serasa (0 a 1000) para que a empresa seja enquadrada como "
+        "'Baixo risco' Serasa. Valores acima disso indicam menor risco de "
+        "inadimplência conforme o Serasa."
+    ),
+    "serasa_moderate_min": (
+        "Menor Score Serasa (0 a 1000) para classificação 'Risco moderado' Serasa. "
+        "Abaixo deste valor o risco Serasa vira 'Alto risco'. Deve ser menor que o "
+        "'Baixo risco a partir de' da classificação Serasa."
+    ),
+    "limit_pct_low": (
+        "Percentual do faturamento mensal usado para sugerir o limite de crédito "
+        "quando a classificação final é 'Baixo risco'. Ex.: 0.20 = 20% do "
+        "faturamento mensal."
+    ),
+    "limit_pct_moderate": (
+        "Percentual do faturamento mensal usado para o limite sugerido quando a "
+        "classificação final é 'Risco moderado'. Geralmente menor que o de baixo "
+        "risco."
+    ),
+    "limit_pct_high": (
+        "Percentual do faturamento mensal para o limite sugerido quando a "
+        "classificação final é 'Alto risco'. Frequentemente 0, pois não se "
+        "recomenda conceder limite."
+    ),
+    "exposure_alert": (
+        "Índice (limite solicitado / capital social) a partir do qual dispara o "
+        "alerta 'Acima do capital social'. Ex.: 1.0 significa que pedidos acima "
+        "de 1x o capital social acionam o alerta."
+    ),
+    "exposure_critical": (
+        "Índice (limite solicitado / capital social) a partir do qual a exposição é "
+        "considerada 'muito alta', forçando 'Aprovar com limite/entrada' ou "
+        "'Negar'. Ex.: 2.0 = pedidos acima de 2x o capital social."
+    ),
+}
+
+
+class Tooltip:
+    """A simple hover tooltip for Tkinter/ttk widgets.
+
+    Shows a small window with a text hint when the mouse hovers over the
+    target widget and hides it when the mouse leaves.
+    """
+
+    def __init__(self, widget, text, delay_ms=450):
+        self.widget = widget
+        self.text = text
+        self.delay_ms = delay_ms
+        self.tip = None
+        self._after_id = None
+        widget.bind("<Enter>", self._on_enter)
+        widget.bind("<Leave>", self._on_leave)
+        widget.bind("<ButtonPress>", self._on_leave)
+
+    def _on_enter(self, _event=None):
+        self._schedule()
+
+    def _on_leave(self, _event=None):
+        self._unschedule()
+        self._hide()
+
+    def _schedule(self):
+        self._unschedule()
+        self._after_id = self.widget.after(self.delay_ms, self._show)
+
+    def _unschedule(self):
+        if self._after_id is not None:
+            self.widget.after_cancel(self._after_id)
+            self._after_id = None
+
+    def _show(self):
+        if self.tip is not None:
+            return
+        x = self.widget.winfo_rootx() + 18
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+        self.tip = tk.Toplevel(self.widget)
+        self.tip.wm_overrideredirect(True)
+        self.tip.geometry(f"+{x}+{y}")
+        self.tip.wm_attributes("-topmost", True)
+        label = tk.Label(
+            self.tip,
+            text=self.text,
+            justify="left",
+            background="#ffffe0",
+            relief="solid",
+            borderwidth=1,
+            font=("Segoe UI", 9),
+            wraplength=420,
+            padx=8,
+            pady=6,
+        )
+        label.pack()
+
+    def _hide(self):
+        if self.tip is not None:
+            self.tip.destroy()
+            self.tip = None
+
 
 class CurrencyEntry(ttk.Entry):
     """Campo de entrada monetária em reais com formatação automática.
@@ -353,6 +487,13 @@ class CreditAnalysisApp:
             var = tk.StringVar()
             rowf_entry = ttk.Entry(rowf, textvariable=var, width=18)
             rowf_entry.pack(side="left")
+            # Ícone de ajuda (hover) com a explicação do parâmetro
+            desc = PARAM_DESCRIPTIONS.get(key)
+            if desc:
+                info = ttk.Label(rowf, text="ⓘ", foreground="#1a73e8", cursor="question_arrow")
+                info.pack(side="left", padx=(6, 0))
+                Tooltip(info, desc)
+                Tooltip(rowf_entry, desc)
             self.params_vars[key] = var
         self._load_params_into_vars()
 
