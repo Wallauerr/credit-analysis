@@ -6,7 +6,9 @@ Ferramenta que automatiza o processo de avaliação de crédito B2B:
 2. Você informa apenas o **limite solicitado** (em reais, com formatação automática) e o **responsável**
 3. Calcula score interno, classificação final e recomendação (regras configuráveis)
 4. **Gera um relatório PDF formatado** (com logo, pronto para enviar) e registra no **histórico**
-5. Permite **consultar o histórico** das análises direto no app e **abrir o PDF** de cada uma
+5. O relatório inclui uma **explicação detalhada das notas** e, quando aplicável
+   (aprovar com limite/entrada ou negar), um **resumo do porquê da recomendação**.
+6. Permite **consultar o histórico** das análises direto no app e **abrir o PDF** de cada uma
 
 > Não depende mais de Excel: toda a lógica de cálculo vive no app e o resultado sai em PDF.
 
@@ -72,6 +74,8 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
   - Limites de classificação interna e Serasa
   - Percentuais do faturamento para o limite sugerido
   - Índices de exposição
+- Cada parâmetro tem um **ícone "ⓘ"** ao lado; passe o mouse sobre ele (ou sobre o campo) para
+  ver uma **explicação detalhada** do que o valor representa antes de alterá-lo.
 - As alterações são salvas em `params_config.json` e valem para as próximas análises.
 - O botão **"Restaurar padrões"** volta aos valores iniciais.
 
@@ -101,6 +105,7 @@ credit-analysis/
 │   ├── processor.py      # orquestra o fluxo completo da análise
 │   ├── pdf_extractor.py  # extração dos dados do PDF
 │   ├── calculations.py   # regras/fórmulas de cálculo (parâmetros editáveis)
+│   ├── auto_scores.py    # notas automáticas, explicações e hard blocks
 │   ├── pdf_report.py     # geração do relatório PDF formatado
 │   ├── history.py        # histórico em JSON para consulta no app
 │   ├── config_handler.py # persistência de config e parâmetros
