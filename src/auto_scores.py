@@ -258,6 +258,128 @@ def calculate_auto_scores(pdf_data, requested_limit) -> dict:
     }
 
 
+def get_note_explanations(pdf_data, requested_limit) -> dict:
+    """Build detailed, human-readable explanations for each score criterion.
+
+    Returns a dict keyed by criterion ("financial", "payment_history",
+    "operational", "legal") whose values are longer paragraphs describing
+    *why* the score was given, based on the real PDF data. Used to enrich the
+    generated report so the reader understands the reasoning behind the notes.
+    """
+    monthly_rev = pdf_data.get("monthly_revenue")
+    annual_rev = pdf_data.get("annual_revenue")
+    capital = pdf_data.get("share_capital")
+    total_debt = pdf_data.get("total_debt") or 0
+    serasa_score = pdf_data.get("serasa_score") or 0
+    status = pdf_data.get("registration_status", "")
+    market_years = pdf_data.get("market_years") or 0
+    queries_13m = pdf_data.get("queries_last_13_months") or 0
+    has_restrictions = pdf_data.get("has_restrictions", False)
+
+    fmt_brl = lambda v: (
+        f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        if v is not None
+        else "não informado"
+    )
+
+    explanations = {}
+
+    # --- Financial ---
+    fin_parts = []
+    if monthly_rev and requested_limit:
+        ratio = requested_limit / monthly_rev
+        fin_parts.append(
+            f"O limite solicitado ({fmt_brl(requested_limit)}) representa "
+            f"{ratio:.0%} do faturamento mensal estimado ({fmt_brl(monthly_rev)})."
+        )
+        if ratio < 0.20:
+            fin_parts.append("Proporção baixa, o que indica folga na capacidade de pagamento.")
+        elif ratio < 0.40:
+            fin_parts.append("Proporção moderada, adequada para o porte da empresa.")
+        elif ratio < 0.60:
+            fin_parts.append("Proporção um pouco elevada, exigindo atenção.")
+        else:
+            fin_parts.append("Proporção elevada, aumentando o risco de inadimplência.")
+    if capital and capital > 0 and requested_limit:
+        cap_ratio = requested_limit / capital
+        fin_parts.append(
+            f"Em relação ao capital social ({fmt_brl(capital)}), o pedido equivale a "
+            f"{cap_ratio:.1f}x do capital."
+        )
+        if cap_ratio > 2.0:
+            fin_parts.append("Esse valor supera 2x o capital social, o que pressiona a nota.")
+    if annual_rev and total_debt and annual_rev > 0:
+        debt_ratio = total_debt / annual_rev
+        fin_parts.append(
+            f"O endividamento total ({fmt_brl(total_debt)}) corresponde a {debt_ratio:.0%} "
+            f"do faturamento anual ({fmt_brl(annual_rev)})."
+        )
+        if debt_ratio > 0.50:
+            fin_parts.append("Nível elevado de endividamento, reduzindo a nota.")
+    explanations["financial"] = " ".join(fin_parts) or (
+        "Dados insuficientes para calcular a capacidade financeira."
+    )
+
+    # --- Payment history ---
+    pay_parts = [f"O Score Serasa da empresa é {serasa_score} (de 0 a 1000)."]
+    if serasa_score >= 700:
+        pay_parts.append("Pontuação alta: forte histórico de pagamentos em dia.")
+    elif serasa_score >= 400:
+        pay_parts.append("Pontuação média: histórico de pagamentos razoável.")
+    else:
+        pay_parts.append("Pontuação baixa: maior probabilidade de atrasos.")
+    if has_restrictions:
+        pay_parts.append("Há registros de restrições/anotações negativas, que penalizam a nota.")
+    else:
+        pay_parts.append("Não foram identificadas restrições/anotações negativas relevantes.")
+    explanations["payment_history"] = " ".join(pay_parts)
+
+    # --- Operational ---
+    op_parts = []
+    if status:
+        op_parts.append(f"Situação cadastral: {status}.")
+    if market_years:
+        op_parts.append(f"Empresa ativa há cerca de {market_years} anos no mercado.")
+        if market_years >= 10:
+            op_parts.append("Tempo considerável de operação, sinal de maturidade e estabilidade.")
+        elif market_years >= 3:
+            op_parts.append("Tempo de mercado razoável.")
+        else:
+            op_parts.append("Empresa relativamente nova, o que aumenta o risco operacional.")
+    if queries_13m:
+        op_parts.append(f"Foram registradas {queries_13m} consultas nos últimos 13 meses.")
+        if queries_13m > 50:
+            op_parts.append("Volume alto de consultas, indicando busca intensa por crédito.")
+    explanations["operational"] = " ".join(op_parts) or (
+        "Dados operacionais insuficientes para uma avaliação detalhada."
+    )
+
+    # --- Legal ---
+    leg_parts = []
+    legal_blocks = []
+    if pdf_data.get("bankruptcy_recovery"):
+        legal_blocks.append("falência/recuperação judicial")
+    if pdf_data.get("judicial_actions"):
+        legal_blocks.append("ações judiciais")
+    if legal_blocks:
+        leg_parts.append(
+            "Há registros de " + " e ".join(legal_blocks) + ", o que eleva fortemente o risco jurídico."
+        )
+    if pdf_data.get("protests_has_records"):
+        leg_parts.append("Existem protestos registrados, que penalizam a avaliação.")
+    if pdf_data.get("shareholders_with_restrictions"):
+        leg_parts.append("Sócios/administradores possuem anotações, aumentando o risco.")
+    if not leg_parts:
+        leg_parts.append(
+            "Não foram identificados impedimentos jurídicos relevantes (falências, ações judiciais, "
+            "protestos ou anotações em sócios)."
+        )
+    leg_parts.append(f"O Score Serasa ({serasa_score}) auxilia na aferição do risco jurídico.")
+    explanations["legal"] = " ".join(leg_parts)
+
+    return explanations
+
+
 def check_hard_blocks(pdf_data, requested_limit):
     """Check for hard block conditions that override the recommendation.
 
