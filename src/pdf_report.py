@@ -235,7 +235,7 @@ def _build_pdf(pdf_data, inputs, calcs, output_path):
         ("Capital social", _fmt_brl(pdf_data.get("share_capital"))),
         ("Faturamento mensal estimado", _fmt_brl(pdf_data.get("monthly_revenue"))),
         ("Limite solicitado", _fmt_brl(inputs.get("requested_limit"))),
-        ("Score interno", str(calcs.get("internal_score"))),
+        ("Score interno (0-100)", str(calcs.get("internal_score"))),
         ("Classificação interna", str(calcs.get("internal_class", "-"))),
         ("Classificação Serasa", str(calcs.get("serasa_class", "-"))),
         ("Classificação final", str(calcs.get("final_class", "-"))),
