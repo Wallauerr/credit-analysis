@@ -13,6 +13,7 @@ from history import load_history
 from calculations import DEFAULT_PARAMS
 from paths import reports_dir, assets_dir
 from serasa_api import (
+    DEFAULT_API_CONFIG,
     fetch_company_data,
     is_api_configured,
     load_api_config,
@@ -331,14 +332,17 @@ class CreditAnalysisApp:
 
         self.tab_analysis = ttk.Frame(self.notebook)
         self.tab_history = ttk.Frame(self.notebook)
+        self.tab_api = ttk.Frame(self.notebook)
         self.tab_config = ttk.Frame(self.notebook)
 
         self.notebook.add(self.tab_analysis, text="Nova Análise")
         self.notebook.add(self.tab_history, text="Histórico")
+        self.notebook.add(self.tab_api, text="API")
         self.notebook.add(self.tab_config, text="Configuração")
 
         self._build_analysis_tab()
         self._build_history_tab()
+        self._build_api_tab()
         self._build_config_tab()
 
         if self.last_pdf_path:
@@ -438,6 +442,56 @@ class CreditAnalysisApp:
             bottom, text="Abrir pasta de relatórios", command=self._open_output
         ).pack(side="left", padx=(8, 0))
 
+    def _build_api_tab(self):
+        tab = self.tab_api
+        scroller = ScrollableFrame(tab)
+        scroller.pack(fill="both", expand=True, padx=4)
+        padding = ttk.Frame(scroller.inner, padding=16)
+        padding.pack(fill="x")
+
+        ttk.Label(
+            padding,
+            text="Integração com a API Serasa (Relatório Avançado PJ)",
+            font=("Segoe UI", 14, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            padding,
+            text=(
+                "Configure as credenciais fornecidas pela Serasa para consultar "
+                "dados por CNPJ sem baixar o PDF. As alterações são salvas em "
+                "api_config.json. Deixe em branco para usar somente o PDF (fallback)."
+            ),
+            foreground="gray",
+            wraplength=750,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 10))
+
+        self.api_vars = {}
+        fields = ttk.LabelFrame(padding, text="Credenciais e consulta", padding=10)
+        fields.pack(fill="x", pady=4)
+        api_rows = [
+            ("serasa_api_env", "Ambiente"),
+            ("serasa_api_client_id", "Client ID"),
+            ("serasa_api_client_secret", "Client Secret"),
+            ("serasa_api_report_name", "Nome do relatório"),
+            ("serasa_api_cost_center", "Centro de custo"),
+            ("serasa_api_retailer_document_id", "CNPJ consultante (distribuidor)"),
+            ("serasa_api_cache_ttl", "Cache (segundos)"),
+        ]
+        self._add_api_row(fields, api_rows)
+
+        actions = ttk.Frame(padding)
+        actions.pack(fill="x", pady=(12, 0))
+        ttk.Button(actions, text="Salvar API", command=self._save_api_params).pack(
+            side="left"
+        )
+        ttk.Button(actions, text="Restaurar padrões", command=self._reset_api_params).pack(
+            side="left", padx=(8, 0)
+        )
+        self.api_status = ttk.Label(actions, text="", foreground="green")
+        self.api_status.pack(side="left", padx=(12, 0))
+        self._load_api_config_into_vars()
+
     def _build_config_tab(self):
         tab = self.tab_config
         scroller = ScrollableFrame(tab)
@@ -519,47 +573,6 @@ class CreditAnalysisApp:
         self.params_status = ttk.Label(actions, text="", foreground="green")
         self.params_status.pack(side="left", padx=(12, 0))
 
-        # ============ API Serasa ============
-        ttk.Separator(padding, orient="horizontal").pack(fill="x", pady=(16, 8))
-        ttk.Label(
-            padding,
-            text="Integração com a API Serasa (Relatório Avançado PJ)",
-            font=("Segoe UI", 14, "bold"),
-        ).pack(anchor="w")
-        ttk.Label(
-            padding,
-            text=(
-                "Configure as credenciais fornecidas pela Serasa para consultar "
-                "dados por CNPJ sem baixar o PDF. As alterações são salvas em "
-                "api_config.json. Deixe em branco para usar somente o PDF (fallback)."
-            ),
-            foreground="gray",
-            wraplength=750,
-            justify="left",
-        ).pack(anchor="w", pady=(0, 10))
-
-        self.api_vars = {}
-        api_fields = group("API Serasa")
-        api_rows = [
-            ("serasa_api_env", "Ambiente"),
-            ("serasa_api_client_id", "Client ID"),
-            ("serasa_api_client_secret", "Client Secret"),
-            ("serasa_api_report_name", "Nome do relatório"),
-            ("serasa_api_cost_center", "Centro de custo"),
-            ("serasa_api_retailer_document_id", "CNPJ consultante (distribuidor)"),
-            ("serasa_api_cache_ttl", "Cache (segundos)"),
-        ]
-        self._add_api_row(api_fields, api_rows)
-
-        api_actions = ttk.Frame(padding)
-        api_actions.pack(fill="x", pady=(12, 0))
-        ttk.Button(
-            api_actions, text="Salvar API", command=self._save_api_params
-        ).pack(side="left")
-        self.api_status = ttk.Label(api_actions, text="", foreground="green")
-        self.api_status.pack(side="left", padx=(12, 0))
-        self._load_api_config_into_vars()
-
     def _add_param_row(self, parent, rows):
         for i, (key, label) in enumerate(rows):
             rowf = ttk.Frame(parent)
@@ -630,6 +643,21 @@ class CreditAnalysisApp:
             messagebox.showerror(
                 "Erro", f"Não foi possível salvar a configuração da API:\n{e}"
             )
+
+    def _reset_api_params(self):
+        """Restaura os valores padrão da configuração da API (mantém credenciais)."""
+        cred_keys = {"serasa_api_client_id", "serasa_api_client_secret"}
+        cfg = {}
+        creds = load_api_config()
+        for key, default in DEFAULT_API_CONFIG.items():
+            cfg[key] = creds.get(key, default) if key in cred_keys else default
+        save_api_config(cfg)
+        self._load_api_config_into_vars()
+        self.api_status.config(
+            text="Configuração da API restaurada para os padrões!",
+            foreground="green",
+        )
+        self.api_status.after(4000, lambda: self.api_status.config(text=""))
 
     # ================= NOVA ANÁLISE =================
     def _build_header(self, parent):
@@ -1007,11 +1035,11 @@ class CreditAnalysisApp:
             if not messagebox.askyesno(
                 "API não configurada",
                 "As credenciais da API Serasa ainda não foram configuradas.\n\n"
-                "Você pode configurá-las na aba 'Configuração' (seção 'API Serasa').\n\n"
+                "Você pode configurá-las na aba 'API'.\n\n"
                 "Deseja abrir a aba de configuração agora?",
             ):
                 return
-            self.notebook.select(self.tab_config)
+            self.notebook.select(self.tab_api)
             return
 
         self.analysing = True
