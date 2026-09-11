@@ -2,7 +2,7 @@
 
 Ferramenta que automatiza o processo de avaliação de crédito B2B:
 
-1. Lê o **PDF do Serasa** automaticamente (CNPJ, score, capital social, faturamento, restrições, etc.)
+1. Consulta o **Serasa direto por CNPJ** (via API do Relatório Avançado PJ) **ou** lê o **PDF do Serasa** como fallback (CNPJ, score, capital social, faturamento, restrições, etc.)
 2. Você informa apenas o **limite solicitado** (em reais, com formatação automática) e o **responsável**
 3. Calcula score interno, classificação final e recomendação (regras configuráveis)
 4. **Gera um relatório PDF formatado** (com logo, pronto para enviar) e registra no **histórico**
@@ -44,20 +44,24 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
 
 ## Usando a interface
 
-1. Gere o **PDF do Serasa** do CNPJ desejado (como já faz hoje).
-2. Abra a aplicação (`.exe` ou `python src\app.py`).
+1. **Forma rápida (API):** digite o **CNPJ** e clique em **"Buscar via API"** — os dados vêm direto da Serasa.
+2. **Fallback (PDF):** gere o **PDF do Serasa** e selecione-o com **"Procurar..."** (como antes).
+3. Abra a aplicação (`.exe` ou `python src\app.py`).
 
 ### Aba "Nova Análise"
 
-3. Clique em **"Procurar..."** para selecionar o PDF do Serasa — os dados são **extraídos
-   automaticamente** e aparecem na tela para conferência.
-4. Preencha os dados manuais:
+1. **Por API:** digite o CNPJ (com ou sem máscara) e clique em **"Buscar via API"** para
+   consultar o **Relatório Avançado PJ** direto na Serasa. Os dados preenchem a tela
+   automaticamente. (Requer credenciais configuradas na aba API.)
+2. **Por PDF (fallback):** clique em **"Procurar..."** para selecionar o PDF do Serasa — os
+   dados são **extraídos automaticamente** e aparecem na tela para conferência.
+3. Preencha os dados manuais:
    - **Limite solicitado** (R$) — com vírgulas/separador de milhar automáticos
    - **Responsável**
    - **Referências comerciais** (Sim/Não) e **observações** (opcionais)
    - As **notas 1-5** ficam numa seção "avançada" (opcional) e assumem valor 3 por padrão
-5. Clique em **"Executar análise"**.
-6. O resultado (score, classificação e recomendação) aparece na tela, e o programa salva:
+4. Clique em **"Executar análise"**.
+5. O resultado (score, classificação e recomendação) aparece na tela, e o programa salva:
    - O **relatório PDF** formatado na pasta `Análises de Crédito/relatorios/`
    - O **histórico** em `Análises de Crédito/analysis_history.json`
    - (tudo dentro da pasta `Documentos`)
@@ -66,6 +70,14 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
 
 - Lista **todas as análises salvas** (data, razão social, CNPJ, score, classe, recomendação, analista).
 - Selecione uma e clique em **"Abrir PDF selecionado"** para reabrir o relatório gerado.
+
+### Aba "API"
+
+- Configura as **credenciais do acesso por CNPJ**: ambiente (homologação/produção),
+  **client ID/client secret** da IAM, nome do relatório e cache.
+- Chamado automaticamente quando você clica em **"Buscar via API"** sem credenciais.
+- Ajustes salvos vão para `api_config.json`. O botão **"Restaurar padrões"** volta aos
+  valores iniciais (mantendo as credenciais preenchidas).
 
 ### Aba "Configuração"
 
@@ -81,6 +93,29 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
 
 > **Alternativa por linha de comando:** execute `python main.py` e siga as instruções no terminal.
 
+### Integração com a API Serasa (Relatório Avançado PJ)
+
+O app consulta a Serasa por CNPJ usando o produto **"Relatório Avançado PJ"** (equivalente ao
+Relato do portal). A **feature TOP Score** também é suportada e adiciona Score Positivo e o
+quadro societário.
+
+- **Credenciais (client ID/client secret)** são fornecidas pela Serasa (via representante
+  comercial/Central de Atendimento). Sem elas, o app segue usando PDF normalmente.
+- Campos do `api_config.json` (editáveis pela aba API):
+  - `serasa_api_env`: `homologacao` (testes) ou `producao` (dados reais)
+  - `serasa_api_client_id` / `serasa_api_client_secret`: credencial IAM da Serasa
+  - `serasa_api_report_name`: nome do relatório (padrão `RELATORIO_AVANCADO_TOP_SCORE_PJ`)
+  - `serasa_api_cost_center` / `serasa_api_retailer_document_id`: (opcionais) centro de custo
+    e CNPJ consultante
+  - `serasa_api_cache_ttl`: segundos em que a consulta de um CNPJ fica em cache (padrão 86400 =
+    24h) para não repetir consulta paga
+- **Cache local:** a resposta de cada CNPJ fica salva em `Análises de Crédito/cache/<CNPJ>.json`.
+  Consultas repetidas dentro do TTL **não gastam novo crédito**.
+- Consultas à API são **pagas** (por conta do contrato Serasa) — por isso o cache é importante.
+
+> **Nota (LGPD):** consultas de crédito têm base legal, mas é recomendado registrar a finalidade
+> e manter logs/rastreabilidade das consultas realizadas.
+
 ## O que é gerado
 
 Todas as informações são organizadas numa pasta **dentro de Documentos**, com nomes em pt-BR:
@@ -90,9 +125,12 @@ Documentos/Análises de Crédito/
 ├── configs/                    ← configurações e log
 │   ├── credit_analysis_config.json  (último PDF/analista)
 │   ├── params_config.json           (parâmetros de cálculo editáveis)
+│   ├── api_config.json              (credenciais/config da API Serasa)
 │   └── credit-analysis.log          (log de erros para diagnóstico)
 ├── relatorios/                 ← relatórios PDF gerados
 │   └── Relatorio_<RAZAO>_<DATA>.pdf  (relatório formatado)
+├── cache/                      ← respostas da API em cache (evita consulta paga repetida)
+│   └── <CNPJ>.json
 └── analysis_history.json       ← registro cumulativo das análises (na raiz)
 ```
 
@@ -101,9 +139,10 @@ Documentos/Análises de Crédito/
 ```
 credit-analysis/
 ├── src/
-│   ├── app.py            # interface gráfica (abas: Nova Análise/Histórico/Configuração)
+│   ├── app.py            # interface gráfica (abas: Nova Análise/Histórico/API/Configuração)
 │   ├── processor.py      # orquestra o fluxo completo da análise
 │   ├── pdf_extractor.py  # extração dos dados do PDF
+│   ├── serasa_api.py     # integração com a API Serasa por CNPJ (Relatório Avançado PJ)
 │   ├── calculations.py   # regras/fórmulas de cálculo (parâmetros editáveis)
 │   ├── auto_scores.py    # notas automáticas, explicações e hard blocks
 │   ├── pdf_report.py     # geração do relatório PDF formatado
