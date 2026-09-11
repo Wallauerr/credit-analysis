@@ -6,8 +6,9 @@ Documents directory (in pt-BR), regardless of running from source or from
 the frozen EXE:
 
     Documentos/Análises de Crédito/
-    ├── configs/           -> config JSONs (UI settings, params) and logs
+    ├── configs/           -> config JSONs (UI settings, params, API) and logs
     ├── relatorios/        -> generated PDF reports
+    ├── cache/             -> cached API responses (avoid duplicate paid queries)
     └── analysis_history.json
 
 Only the bundled assets (logo/icon) come from the EXE / source tree.
@@ -73,6 +74,13 @@ def configs_dir():
 def reports_dir():
     """PDF reports subfolder. Created on demand."""
     folder = os.path.join(app_dir(), REPORTS_SUBFOLDER)
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def cache_dir():
+    """Cache subfolder for API responses (avoids duplicate paid queries). Created on demand."""
+    folder = os.path.join(app_dir(), "cache")
     os.makedirs(folder, exist_ok=True)
     return folder
 
