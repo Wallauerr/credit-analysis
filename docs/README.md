@@ -52,7 +52,7 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
 
 1. **Por API:** digite o CNPJ (com ou sem máscara) e clique em **"Buscar via API"** para
    consultar o **Relatório Avançado PJ** direto na Serasa. Os dados preenchem a tela
-   automaticamente. (Requer credenciais configuradas na aba Configuração.)
+   automaticamente. (Requer credenciais configuradas na aba API.)
 2. **Por PDF (fallback):** clique em **"Procurar..."** para selecionar o PDF do Serasa — os
    dados são **extraídos automaticamente** e aparecem na tela para conferência.
 3. Preencha os dados manuais:
@@ -71,6 +71,14 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
 - Lista **todas as análises salvas** (data, razão social, CNPJ, score, classe, recomendação, analista).
 - Selecione uma e clique em **"Abrir PDF selecionado"** para reabrir o relatório gerado.
 
+### Aba "API"
+
+- Configura as **credenciais do acesso por CNPJ**: ambiente (homologação/produção),
+  **client ID/client secret** da IAM, nome do relatório e cache.
+- Chamado automaticamente quando você clica em **"Buscar via API"** sem credenciais.
+- Ajustes salvos vão para `api_config.json`. O botão **"Restaurar padrões"** volta aos
+  valores iniciais (mantendo as credenciais preenchidas).
+
 ### Aba "Configuração"
 
 - Permite **editar a lógica de cálculo** sem mexer no código:
@@ -82,9 +90,6 @@ abrir a janela da aplicação (não precisa instalar Python nem dependências).
   ver uma **explicação detalhada** do que o valor representa antes de alterá-lo.
 - As alterações são salvas em `params_config.json` e valem para as próximas análises.
 - O botão **"Restaurar padrões"** volta aos valores iniciais.
-- Na seção **"Integração com a API Serasa"** você configura as credenciais do acesso por CNPJ
-  (client ID/secret, ambiente homologação/produção, relatório e cache). Ajustes salvos vão para
-  `api_config.json`.
 
 > **Alternativa por linha de comando:** execute `python main.py` e siga as instruções no terminal.
 
@@ -96,7 +101,7 @@ quadro societário.
 
 - **Credenciais (client ID/client secret)** são fornecidas pela Serasa (via representante
   comercial/Central de Atendimento). Sem elas, o app segue usando PDF normalmente.
-- Campos do `api_config.json` (editáveis pela aba Configuração):
+- Campos do `api_config.json` (editáveis pela aba API):
   - `serasa_api_env`: `homologacao` (testes) ou `producao` (dados reais)
   - `serasa_api_client_id` / `serasa_api_client_secret`: credencial IAM da Serasa
   - `serasa_api_report_name`: nome do relatório (padrão `RELATORIO_AVANCADO_TOP_SCORE_PJ`)
@@ -134,7 +139,7 @@ Documentos/Análises de Crédito/
 ```
 credit-analysis/
 ├── src/
-│   ├── app.py            # interface gráfica (abas: Nova Análise/Histórico/Configuração)
+│   ├── app.py            # interface gráfica (abas: Nova Análise/Histórico/API/Configuração)
 │   ├── processor.py      # orquestra o fluxo completo da análise
 │   ├── pdf_extractor.py  # extração dos dados do PDF
 │   ├── serasa_api.py     # integração com a API Serasa por CNPJ (Relatório Avançado PJ)
