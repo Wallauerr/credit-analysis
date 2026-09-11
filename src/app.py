@@ -12,6 +12,13 @@ from pdf_extractor import extract_pdf_data
 from history import load_history
 from calculations import DEFAULT_PARAMS
 from paths import reports_dir, assets_dir
+from serasa_api import (
+    fetch_company_data,
+    is_api_configured,
+    load_api_config,
+    save_api_config,
+    normalize_cnpj,
+)
 
 SCORE_LABELS = {
     1: "Muito ruim",
@@ -90,6 +97,39 @@ PARAM_DESCRIPTIONS = {
         "Índice (limite solicitado / capital social) a partir do qual a exposição é "
         "considerada 'muito alta', forçando 'Aprovar com limite/entrada' ou "
         "'Negar'. Ex.: 2.0 = pedidos acima de 2x o capital social."
+    ),
+}
+
+# Descrições dos campos de configuração da API Serasa (exibidos como dica no
+# hover ⓘ na aba de configuração).
+API_PARAM_DESCRIPTIONS = {
+    "serasa_api_env": (
+        "Ambiente da API: 'homologacao' para testes (UAT) ou 'producao' para "
+        "consultar dados reais. Use homologação até validar toda a integração."
+    ),
+    "serasa_api_client_id": (
+        "Client ID (identificador) da credencial IAM fornecida pela Serasa para "
+        "o produto 'Relatório Avançado PJ'. Necessário para obter o token."
+    ),
+    "serasa_api_client_secret": (
+        "Client Secret (segredo) da credencial IAM da Serasa. Fica salvo no "
+        "api_config.json. Nunca compartilhe este valor."
+    ),
+    "serasa_api_report_name": (
+        "Nome do relatório consultado. Ex.: RELATORIO_AVANCADO_PJ (Relato) ou "
+        "RELATORIO_AVANCADO_TOP_SCORE_PJ (com Score Positivo e quadro societário)."
+    ),
+    "serasa_api_cost_center": (
+        "(Opcional) Código do centro de custo usado na contabilização da "
+        "consulta, enviado no cabeçalho X-Cost-Center."
+    ),
+    "serasa_api_retailer_document_id": (
+        "(Opcional) CNPJ do cliente consultante, enviado no cabeçalho "
+        "X-Retailer-Document-Id para contratos de distribuidor."
+    ),
+    "serasa_api_cache_ttl": (
+        "Tempo (em segundos) em que a última consulta do mesmo CNPJ fica salva "
+        "em cache para não repetir a consulta paga. 86400 = 24h. 0 desativa."
     ),
 }
 
@@ -479,6 +519,47 @@ class CreditAnalysisApp:
         self.params_status = ttk.Label(actions, text="", foreground="green")
         self.params_status.pack(side="left", padx=(12, 0))
 
+        # ============ API Serasa ============
+        ttk.Separator(padding, orient="horizontal").pack(fill="x", pady=(16, 8))
+        ttk.Label(
+            padding,
+            text="Integração com a API Serasa (Relatório Avançado PJ)",
+            font=("Segoe UI", 14, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            padding,
+            text=(
+                "Configure as credenciais fornecidas pela Serasa para consultar "
+                "dados por CNPJ sem baixar o PDF. As alterações são salvas em "
+                "api_config.json. Deixe em branco para usar somente o PDF (fallback)."
+            ),
+            foreground="gray",
+            wraplength=750,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 10))
+
+        self.api_vars = {}
+        api_fields = group("API Serasa")
+        api_rows = [
+            ("serasa_api_env", "Ambiente"),
+            ("serasa_api_client_id", "Client ID"),
+            ("serasa_api_client_secret", "Client Secret"),
+            ("serasa_api_report_name", "Nome do relatório"),
+            ("serasa_api_cost_center", "Centro de custo"),
+            ("serasa_api_retailer_document_id", "CNPJ consultante (distribuidor)"),
+            ("serasa_api_cache_ttl", "Cache (segundos)"),
+        ]
+        self._add_api_row(api_fields, api_rows)
+
+        api_actions = ttk.Frame(padding)
+        api_actions.pack(fill="x", pady=(12, 0))
+        ttk.Button(
+            api_actions, text="Salvar API", command=self._save_api_params
+        ).pack(side="left")
+        self.api_status = ttk.Label(api_actions, text="", foreground="green")
+        self.api_status.pack(side="left", padx=(12, 0))
+        self._load_api_config_into_vars()
+
     def _add_param_row(self, parent, rows):
         for i, (key, label) in enumerate(rows):
             rowf = ttk.Frame(parent)
@@ -504,6 +585,52 @@ class CreditAnalysisApp:
         for key, var in self.params_vars.items():
             var.set(merged.get(key, ""))
 
+    def _add_api_row(self, parent, rows):
+        for key, label in rows:
+            rowf = ttk.Frame(parent)
+            rowf.pack(fill="x", pady=2)
+            ttk.Label(rowf, text=label + ":", width=38, anchor="w").pack(side="left")
+            var = tk.StringVar()
+            entry_width = 18 if key != "serasa_api_report_name" else 42
+            entry = ttk.Entry(rowf, textvariable=var, width=entry_width, show="*" if "secret" in key else "")
+            entry.pack(side="left")
+            desc = API_PARAM_DESCRIPTIONS.get(key)
+            if desc:
+                info = ttk.Label(rowf, text="ⓘ", foreground="#1a73e8", cursor="question_arrow")
+                info.pack(side="left", padx=(6, 0))
+                Tooltip(info, desc)
+                Tooltip(entry, desc)
+            self.api_vars[key] = var
+
+    def _load_api_config_into_vars(self):
+        cfg = load_api_config()
+        for key, var in self.api_vars.items():
+            var.set(cfg.get(key, ""))
+
+    def _save_api_params(self):
+        try:
+            new_cfg = {}
+            for key, var in self.api_vars.items():
+                new_cfg[key] = var.get().strip()
+            ttl = new_cfg.get("serasa_api_cache_ttl", "")
+            if ttl:
+                new_cfg["serasa_api_cache_ttl"] = int(float(ttl))
+            save_api_config(new_cfg)
+            self.api_status.config(
+                text="Configuração da API salva com sucesso!", foreground="green"
+            )
+            self.api_status.after(4000, lambda: self.api_status.config(text=""))
+        except ValueError:
+            messagebox.showerror(
+                "Valor inválido",
+                "O campo 'Cache (segundos)' deve ser um número inteiro.",
+            )
+        except Exception as e:
+            logger.error(f"Falha ao salvar configuração da API: {e}", exc_info=True)
+            messagebox.showerror(
+                "Erro", f"Não foi possível salvar a configuração da API:\n{e}"
+            )
+
     # ================= NOVA ANÁLISE =================
     def _build_header(self, parent):
         header = ttk.Frame(parent, padding=(16, 12))
@@ -515,25 +642,51 @@ class CreditAnalysisApp:
         ).pack(anchor="w")
         ttk.Label(
             header,
-            text="PDF Serasa  →  Relatório PDF formatado + histórico",
+            text="Serasa (API ou PDF)  →  Relatório PDF formatado + histórico",
             font=("Segoe UI", 10),
         ).pack(anchor="w")
 
     def _build_pdf_section(self, parent):
-        frame = ttk.LabelFrame(parent, text="1. PDF de origem (Serasa)", padding=12)
+        frame = ttk.LabelFrame(parent, text="1. Dados de origem (Serasa)", padding=12)
         frame.pack(fill="x", padx=16, pady=(4, 8))
 
-        row = ttk.Frame(frame)
-        row.pack(fill="x")
+        # Linha 1: consulta via API por CNPJ
+        api_row = ttk.Frame(frame)
+        api_row.pack(fill="x")
+        self.api_cnpj_var = tk.StringVar()
+        ttk.Label(api_row, text="CNPJ:").pack(side="left", padx=(0, 6))
+        ttk.Entry(api_row, textvariable=self.api_cnpj_var, width=22).pack(
+            side="left"
+        )
+        ttk.Button(
+            api_row, text="Buscar via API", command=self._fetch_via_api
+        ).pack(side="left", padx=(8, 0))
+        api_info = ttk.Label(
+            api_row,
+            text="(consulta o Relatório Avançado PJ direto na Serasa)",
+            foreground="gray",
+        )
+        api_info.pack(side="left", padx=(8, 0))
+
+        # Separador sutil
+        ttk.Separator(frame, orient="horizontal").pack(fill="x", pady=8)
+
+        # Linha 2: fluxo via PDF (fallback)
+        pdf_row = ttk.Frame(frame)
+        pdf_row.pack(fill="x")
+        ttk.Label(pdf_row, text="PDF:").pack(side="left", padx=(0, 6))
         self.pdf_var = tk.StringVar()
-        ttk.Entry(row, textvariable=self.pdf_var, state="readonly").pack(
+        ttk.Entry(pdf_row, textvariable=self.pdf_var, state="readonly").pack(
             side="left", fill="x", expand=True, padx=(0, 8)
         )
-        ttk.Button(row, text="Procurar...", command=self._browse_pdf).pack(side="left")
+        ttk.Button(pdf_row, text="Procurar...", command=self._browse_pdf).pack(side="left")
 
         self.pdf_status = ttk.Label(
             frame,
-            text="Selecione o PDF do Serasa. Os dados são extraídos automaticamente.",
+            text=(
+                "Digite o CNPJ e clique em 'Buscar via API', ou selecione o PDF "
+                "do Serasa (fallback). Dados exibidos abaixo."
+            ),
             foreground="gray",
         )
         self.pdf_status.pack(anchor="w", pady=(8, 0))
@@ -835,6 +988,85 @@ class CreditAnalysisApp:
             save_config(last_pdf_path=path, last_analyst=self.analyst_var.get())
             self._extract()
 
+    def _fetch_via_api(self):
+        cnpj_raw = self.api_cnpj_var.get().strip()
+        if not cnpj_raw:
+            messagebox.showwarning(
+                "CNPJ em falta", "Informe o CNPJ (ex.: 00.000.000/0000-00)."
+            )
+            return
+        try:
+            cnpj_digits = normalize_cnpj(cnpj_raw)
+        except ValueError as e:
+            messagebox.showwarning("CNPJ inválido", str(e))
+            return
+
+        cfg = load_api_config()
+        if not is_api_configured(cfg):
+            # Sem credenciais: orienta a configuração (mantém o PDF como fallback).
+            if not messagebox.askyesno(
+                "API não configurada",
+                "As credenciais da API Serasa ainda não foram configuradas.\n\n"
+                "Você pode configurá-las na aba 'Configuração' (seção 'API Serasa').\n\n"
+                "Deseja abrir a aba de configuração agora?",
+            ):
+                return
+            self.notebook.select(self.tab_config)
+            return
+
+        self.analysing = True
+        self.progress.start(12)
+        self.pdf_status.config(
+            text=f"Consultando a API Serasa para o CNPJ {cnpj_digits}...",
+            foreground="blue",
+        )
+        thread = threading.Thread(
+            target=self._fetch_via_api_thread,
+            args=(cnpj_digits, cfg),
+            daemon=True,
+        )
+        thread.start()
+
+    def _fetch_via_api_thread(self, cnpj_digits, cfg):
+        try:
+            data = fetch_company_data(cnpj_digits, cfg=cfg, use_cache=True)
+        except Exception as e:
+            logger.error(f"Falha na consulta via API: {e}", exc_info=True)
+            self.root.after(0, self._on_api_fetch_error, str(e))
+            return
+        self.root.after(
+            0, lambda: self._on_api_fetch_success(cnpj_digits, data)
+        )
+
+    def _on_api_fetch_success(self, cnpj_digits, data):
+        self.progress.stop()
+        self.analysing = False
+        self.pdf_data = data
+        self.pdf_path = None
+        self.pdf_var.set("")
+        self._show_extracted(self.pdf_data)
+        if self.auto_scores_enabled.get():
+            self._apply_auto_scores()
+        has_missing = bool(self._get_missing_essential_fields())
+        status = (
+            "Dados obtidos via API. Alguns campos essenciais precisam ser "
+            "confirmados/preenchidos."
+            if has_missing
+            else "Dados obtidos via API. Confira os valores e preencha os dados manuais."
+        )
+        self.pdf_status.config(text=status, foreground="green")
+        if has_missing:
+            self.root.after(200, self._open_missing_data_modal)
+
+    def _on_api_fetch_error(self, error):
+        self.progress.stop()
+        self.analysing = False
+        self.pdf_status.config(
+            text="Falha na consulta via API. Use o PDF como fallback.",
+            foreground="red",
+        )
+        messagebox.showerror("Erro na consulta via API", error)
+
     def _extract(self):
         if not self.pdf_path:
             messagebox.showwarning("Nenhum PDF", "Selecione um arquivo PDF primeiro.")
@@ -1000,12 +1232,11 @@ class CreditAnalysisApp:
         return -val if neg else val
 
     def _validate_inputs(self):
-        if not self.pdf_path:
-            return None, "Selecione um arquivo PDF primeiro."
         if self.pdf_data is None:
             return (
                 None,
-                "Selecione o PDF do Serasa para extrair os dados antes de analisar.",
+                "Obtenha os dados primeiro (busque via API pelo CNPJ ou selecione "
+                "o PDF do Serasa) antes de analisar.",
             )
 
         requested_limit = self.limit_entry.get_value()
