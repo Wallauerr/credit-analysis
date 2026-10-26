@@ -25,7 +25,8 @@ def process_analysis(pdf_path, inputs, report_path=None, pdf_data=None):
     """
     Run the full analysis flow.
 
-    pdf_path: str, path to the Serasa PDF
+    pdf_path: str or None, path to the Serasa PDF. May be None when
+        pdf_data is provided (e.g. data fetched from the Serasa API).
     inputs: dict with:
         - requested_limit (float)
         - scores (tuple 4x, 1-5) or None if auto
@@ -38,12 +39,13 @@ def process_analysis(pdf_path, inputs, report_path=None, pdf_data=None):
     report_path: str, optional path for the generated PDF
     pdf_data: dict, optional pre-extracted data. When provided, the PDF is not
         re-extracted (preserves any manual edits made in the GUI modal).
+        Also allows running the analysis without a PDF (API integration).
 
     Returns a dict with 'pdf_data', 'calcs', 'report_path', 'history_path',
     'auto_scores_details'.
-    Raises FileNotFoundError if the PDF is missing.
+    Raises FileNotFoundError if the PDF is missing and no pdf_data is given.
     """
-    if not os.path.exists(pdf_path):
+    if pdf_data is None and (not pdf_path or not os.path.exists(pdf_path)):
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
 
     # 1. Extract PDF data (or reuse pre-extracted/manually edited data)
